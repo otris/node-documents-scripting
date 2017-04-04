@@ -49,10 +49,12 @@ program
     .action(function (json, otherDirs) {
     console.log('test json %s', json);
     if (otherDirs) {
-        otherDirs.forEach(function (oDir) {
-            console.log('test ' + oDir);
-            sdsAccess.sdsSession(loginData, [json, oDir]);
-        });
+        console.log('test ' + otherDirs[0]);
+        sdsAccess.sdsSession(loginData, [json, otherDirs[0]]);
+        // otherDirs.forEach(function (oDir) {
+        //     console.log('test ' + oDir);
+        //     sdsAccess.sdsSession(loginData, [json, oDir]);
+        // });
     }
     else {
         console.log('test dir missing');
