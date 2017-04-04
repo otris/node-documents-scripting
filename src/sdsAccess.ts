@@ -33,7 +33,7 @@ export function sdsSession(loginData: config.LoginData, param: any[]) {
         return;
     }
 
-    loginData.ensureLoginData(param[0]).then(() => {
+    loginData.ensureLoginData().then(() => {
         console.log('ensureLoginData successful');
 
         // create socket

@@ -30,7 +30,7 @@ function sdsSession(loginData, param) {
         console.log('sdsSession: invalid parameter');
         return;
     }
-    loginData.ensureLoginData(param[0]).then(() => {
+    loginData.ensureLoginData().then(() => {
         console.log('ensureLoginData successful');
         // create socket
         let sdsSocket = net_1.connect(loginData.port, loginData.server);

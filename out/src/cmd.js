@@ -15,7 +15,6 @@ exports.cmdvar = 0;
 // command options
 var program = require('commander');
 // set up sdsAccess
-let loginData = new config.LoginData();
 sdsAccess.setServerOperation((sdsConnection, param) => documentsOperation(sdsConnection, param));
 function documentsOperation(sdsConnection, param) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -50,6 +49,7 @@ program
     console.log('test json %s', json);
     if (otherDirs) {
         console.log('test ' + otherDirs[0]);
+        let loginData = new config.LoginData(json);
         sdsAccess.sdsSession(loginData, [json, otherDirs[0]]);
         // otherDirs.forEach(function (oDir) {
         //     console.log('test ' + oDir);
