@@ -26,8 +26,7 @@ function setServerOperation(func) {
 }
 exports.setServerOperation = setServerOperation;
 function sdsSession(loginData, param) {
-    if (!loginData || param.length != 2 || typeof param[0] !== 'string' || typeof param[1] !== 'string') {
-        console.log('sdsSession: invalid parameter');
+    if (!loginData) {
         return;
     }
     loginData.ensureLoginData().then(() => {
