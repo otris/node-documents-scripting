@@ -4,7 +4,7 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/otris/node-documents-scripting"
   },
   "license": "MIT",
   "main": "out/src/main.js",

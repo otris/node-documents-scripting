@@ -70,3 +70,7 @@ program.parse(process.argv);
 // }
 
 
+// github-https-link: https://github.com/otris/node-documents-scripting.git
+// npm install git+github-https-link
+// =>
+// npm install git+https://github.com/otris/node-documents-scripting.git

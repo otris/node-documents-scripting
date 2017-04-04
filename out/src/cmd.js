@@ -67,4 +67,8 @@ program.parse(process.argv);
 // if (program.args) {
 //     console.log('args ' + program.args);
 // }
+// github-https-link: https://github.com/otris/node-documents-scripting.git
+// npm install git+github-https-link
+// =>
+// npm install git+https://github.com/otris/node-documents-scripting.git
 //# sourceMappingURL=cmd.js.map
