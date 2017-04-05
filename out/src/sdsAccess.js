@@ -26,50 +26,65 @@ function setServerOperation(func) {
 }
 exports.setServerOperation = setServerOperation;
 function sdsSession(loginData, param) {
-    if (!loginData) {
-        return;
-    }
-    loginData.ensureLoginData().then(() => {
-        console.log('ensureLoginData successful');
-        // create socket
-        let sdsSocket = net_1.connect(loginData.port, loginData.server);
-        // implement callback functions for the socket
-        // actual function (callOperation) is in the callback function "socket.on(connect)"
-        sdsSocket.on('connect', () => {
-            console.log('callback socket.on(connect)...');
-            doLogin(loginData, sdsSocket).then((sdsConnection) => {
-                // switchOperation() and closeConnection() are both called inside doLogin.then()
-                // because both need parameter sdsConnection
-                // call switchOperation() and then close the connection in any case
-                serverOperation(sdsConnection, param).then(() => {
-                    closeConnection(sdsConnection).catch((reason) => {
-                        console.log(reason);
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            if (!loginData) {
+                reject();
+            }
+            if (loginData.ensureLoginData()) {
+                console.log('ensureLoginData successful');
+                // create socket
+                let sdsSocket = net_1.connect(loginData.port, loginData.server);
+                // implement callback functions for the socket
+                // actual function (serverOperation) is in callback function on-connect
+                // callback on-connect
+                sdsSocket.on('connect', () => {
+                    console.log('callback socket.on(connect)');
+                    doLogin(loginData, sdsSocket).then((sdsConnection) => {
+                        // call serverOperation and then close the connection in any case
+                        serverOperation(sdsConnection, param).then(() => {
+                            closeConnection(sdsConnection).then(() => {
+                                resolve();
+                            }).catch((reason) => {
+                                reject('close connection failed ' + reason);
+                            });
+                        }).catch((reason) => {
+                            console.log('serverOperation -> catch: ' + reason);
+                            closeConnection(sdsConnection).then(() => {
+                                // reject because serverOperation went wrong
+                                reject(reason);
+                            }).catch((reason2) => {
+                                // only show reason from catch-serverOperation!
+                                reject(reason);
+                            });
+                        });
+                    }).catch((reason) => {
+                        console.log('doLogin -> catch');
+                        reject(reason);
                     });
-                }).catch((reason) => {
-                    console.log(reason);
-                    closeConnection(sdsConnection); // => check socket-on-close
                 });
-            }).catch((reason) => {
-                console.log(reason);
-            });
-        });
-        sdsSocket.on('close', (hadError) => {
-            console.log('callback socket.on(close)...');
-            if (hadError) {
-                console.log('remote closed SDS connection due to error');
+                // callback on-close
+                sdsSocket.on('close', (hadError) => {
+                    console.log('callback socket.on(close)');
+                    if (hadError) {
+                        console.log('remote closed SDS connection due to error');
+                    }
+                    else {
+                        console.log('remote closed SDS connection');
+                    }
+                });
+                // callback on-error
+                sdsSocket.on('error', (err) => {
+                    console.log('callback socket.on(error)');
+                    console.log(err);
+                    reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
+                });
             }
             else {
-                console.log('remote closed SDS connection');
+                console.log('ensureLoginData failed');
+                reject('ensureLoginData failed');
             }
         });
-        sdsSocket.on('error', (err) => {
-            console.log('callback socket.on(error)...');
-            console.log(err);
-            // todo move this somewhere else...
-            //vscode.window.showErrorMessage('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
-        });
-    }).catch((reason) => {
-        console.log('ensureLoginData failed: ' + reason);
     });
 }
 exports.sdsSession = sdsSession;
@@ -111,7 +126,7 @@ function closeConnection(sdsConnection) {
             sdsConnection.disconnect().then(() => {
                 resolve();
             }).catch((reason) => {
-                reject("closeConnection: " + reason);
+                reject("closeConnection failed: " + reason);
             });
         });
     });

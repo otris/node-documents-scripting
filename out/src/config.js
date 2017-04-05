@@ -1,17 +1,9 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
 const stripJsonComments = require('strip-json-comments');
 class LoginData {
-    constructor(_launchjson, _inputfunction) {
+    constructor(_launchjson) {
         this.server = '';
         this.port = 0;
         this.principal = '';
@@ -19,17 +11,16 @@ class LoginData {
         this.password = '';
         this.launchjson = '';
         this.launchjson = _launchjson;
-        if (_inputfunction) {
-            this.inputfunction = _inputfunction;
-        }
     }
     checkLoginData() {
+        console.log('checkLoginData');
         if ('' === this.server || 0 === this.port || '' === this.principal || '' === this.username) {
             return false;
         }
         return true;
     }
     loadLaunchJson() {
+        console.log('loadLaunchJson');
         if (!this.launchjson) {
             return false;
         }
@@ -55,25 +46,11 @@ class LoginData {
         return true;
     }
     ensureLoginData() {
-        return __awaiter(this, void 0, void 0, function* () {
-            console.log('IniData.ensureLoginData');
-            return new Promise((resolve, reject) => {
-                // check launch.json for changes every time
-                if (this.loadLaunchJson() && this.checkLoginData()) {
-                    resolve();
-                }
-                else if (this.inputfunction) {
-                    this.inputfunction(this).then(() => {
-                        resolve();
-                    }).catch((reason) => {
-                        reject(reason);
-                    });
-                }
-                else {
-                    reject();
-                }
-            });
-        });
+        console.log('ensureLoginData');
+        if (this.loadLaunchJson() && this.checkLoginData()) {
+            return true;
+        }
+        return false;
     }
     dispose() {
         //
