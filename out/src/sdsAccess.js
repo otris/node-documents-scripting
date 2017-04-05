@@ -147,6 +147,8 @@ function getScript(file) {
     let s;
     if (file && '.js' === path.extname(file)) {
         try {
+            // todo check with fs.stat because if file looks relative readFileSync
+            // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
             let sc = fs.readFileSync(file, 'utf8');
             let _name = path.basename(file, '.js');
             return { name: _name, sourceCode: sc };
@@ -264,7 +266,7 @@ function downloadScript(sdsConnection, scriptName, parampath) {
                                             }
                                             else {
                                                 console.log("downloaded script: " + scriptPath);
-                                                resolve();
+                                                resolve(scriptName);
                                             }
                                         });
                                     }
@@ -276,7 +278,7 @@ function downloadScript(sdsConnection, scriptName, parampath) {
                         }
                         else {
                             console.log("downloaded script: " + scriptPath);
-                            resolve();
+                            resolve(scriptName);
                         }
                     });
                 }
@@ -302,7 +304,7 @@ function uploadScript(sdsConnection, shortName, scriptSource) {
             scriptSource = lines.join('\n');
             sdsConnection.callClassOperation("PortalScript.uploadScript", [shortName, scriptSource], true).then((value) => {
                 console.log('uploaded shortName: ', shortName);
-                resolve();
+                resolve(shortName);
             }).catch((reason) => {
                 reject(reason);
             });

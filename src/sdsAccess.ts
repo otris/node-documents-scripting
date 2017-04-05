@@ -163,6 +163,8 @@ export function getScript(file: string): script | string {
     let s: script;
     if(file && '.js' === path.extname(file)) {
         try {
+            // todo check with fs.stat because if file looks relative readFileSync
+            // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
             let sc = fs.readFileSync(file, 'utf8');
             let _name = path.basename(file, '.js');
             return {name: _name, sourceCode: sc};
@@ -242,8 +244,8 @@ export async function runAll(sdsConnection: SDSConnection, folder: string): Prom
 }
 
 
-export async function downloadScript(sdsConnection: SDSConnection, scriptName: string, parampath: string): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+export async function downloadScript(sdsConnection: SDSConnection, scriptName: string, parampath: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
         sdsConnection.callClassOperation("PortalScript.downloadScript", [scriptName]).then((retval) => {
             let scriptSource: string = retval[0];
             if(!parampath) {
@@ -278,7 +280,7 @@ export async function downloadScript(sdsConnection: SDSConnection, scriptName: s
                                             reject(error);
                                         } else {
                                             console.log("downloaded script: " +  scriptPath);
-                                            resolve();
+                                            resolve(scriptName);
                                         }
                                     });
                                 }
@@ -288,7 +290,7 @@ export async function downloadScript(sdsConnection: SDSConnection, scriptName: s
                         }
                     } else {
                         console.log("downloaded script: " +  scriptPath);
-                        resolve();
+                        resolve(scriptName);
                     }
                 });
             }
@@ -298,8 +300,8 @@ export async function downloadScript(sdsConnection: SDSConnection, scriptName: s
     });
 }
 
-export async function uploadScript(sdsConnection: SDSConnection, shortName: string, scriptSource: string): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+export async function uploadScript(sdsConnection: SDSConnection, shortName: string, scriptSource: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
         let lines = scriptSource.split('\n');
         if(lines.length > 1) {
             if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
@@ -312,7 +314,7 @@ export async function uploadScript(sdsConnection: SDSConnection, shortName: stri
         scriptSource = lines.join('\n');
         sdsConnection.callClassOperation("PortalScript.uploadScript", [shortName, scriptSource], true).then((value) => {
             console.log('uploaded shortName: ', shortName);
-            resolve();
+            resolve(shortName);
         }).catch((reason) => {
             reject(reason);
         });
