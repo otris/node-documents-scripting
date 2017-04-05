@@ -14,8 +14,8 @@ const SDS_TIMEOUT: number = 60 * 1000;
 
 
 let serverOperation = (sdsConnection: SDSConnection, param: any[]) => {
-    return new Promise<void>((resolve, reject) => {
-        resolve();
+    return new Promise<string>((resolve, reject) => {
+        resolve('');
     });
 };
 
@@ -25,10 +25,10 @@ export function setServerOperation(func) {
 }
 
 
-export async function sdsSession(loginData: config.LoginData, param: any[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+export async function sdsSession(loginData: config.LoginData, param: any[]): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
         if(!loginData) {
-            reject();
+            reject('no login data');
         }
 
 
@@ -48,9 +48,9 @@ export async function sdsSession(loginData: config.LoginData, param: any[]): Pro
                 doLogin(loginData, sdsSocket).then((sdsConnection) => {
                     
                     // call serverOperation and then close the connection in any case
-                    serverOperation(sdsConnection, param).then(() => {
+                    serverOperation(sdsConnection, param).then((value) => {
                         closeConnection(sdsConnection).then(() => {
-                            resolve();
+                            resolve(value);
                         }).catch((reason) => {
                             reject('close connection failed ' + reason);
                         });

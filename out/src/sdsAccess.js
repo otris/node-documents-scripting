@@ -17,7 +17,7 @@ const node_sds_1 = require("node-sds");
 const SDS_TIMEOUT = 60 * 1000;
 let serverOperation = (sdsConnection, param) => {
     return new Promise((resolve, reject) => {
-        resolve();
+        resolve('');
     });
 };
 // todo param of sdsSession()
@@ -29,7 +29,7 @@ function sdsSession(loginData, param) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             if (!loginData) {
-                reject();
+                reject('no login data');
             }
             if (loginData.ensureLoginData()) {
                 console.log('ensureLoginData successful');
@@ -42,9 +42,9 @@ function sdsSession(loginData, param) {
                     console.log('callback socket.on(connect)');
                     doLogin(loginData, sdsSocket).then((sdsConnection) => {
                         // call serverOperation and then close the connection in any case
-                        serverOperation(sdsConnection, param).then(() => {
+                        serverOperation(sdsConnection, param).then((value) => {
                             closeConnection(sdsConnection).then(() => {
-                                resolve();
+                                resolve(value);
                             }).catch((reason) => {
                                 reject('close connection failed ' + reason);
                             });
