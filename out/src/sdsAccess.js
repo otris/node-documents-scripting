@@ -20,13 +20,21 @@ let serverOperation = (sdsConnection, param) => {
         resolve('');
     });
 };
+let serverOperationBackup = serverOperation;
 // todo param of sdsSession()
 function setServerOperation(func) {
     serverOperation = func;
+    serverOperationBackup = func;
 }
 exports.setServerOperation = setServerOperation;
-function sdsSession(loginData, param) {
+function sdsSession(loginData, param, serverOperationParam) {
     return __awaiter(this, void 0, void 0, function* () {
+        if (serverOperationParam) {
+            serverOperation = serverOperationParam;
+        }
+        else {
+            serverOperation = serverOperationBackup;
+        }
         return new Promise((resolve, reject) => {
             if (!loginData) {
                 reject('no login data');
@@ -228,16 +236,16 @@ function runAll(sdsConnection, folder) {
     });
 }
 exports.runAll = runAll;
-function downloadScript(sdsConnection, scriptName, parampath) {
+function downloadScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            sdsConnection.callClassOperation("PortalScript.downloadScript", [scriptName]).then((retval) => {
+            sdsConnection.callClassOperation("PortalScript.downloadScript", [params[0]]).then((retval) => {
                 let scriptSource = retval[0];
-                if (!parampath) {
+                if (!params[1]) {
                     reject('path missing');
                 }
                 else if (!scriptSource) {
-                    reject('could not find ' + scriptName + ' on server');
+                    reject('could not find ' + params[0] + ' on server');
                 }
                 else {
                     let lines = scriptSource.split('\n');
@@ -250,23 +258,23 @@ function downloadScript(sdsConnection, scriptName, parampath) {
                         }
                     }
                     scriptSource = lines.join('\n');
-                    let scriptPath = path.join(parampath, scriptName + ".js");
+                    let scriptPath = path.join(params[1], params[0] + ".js");
                     fs.writeFile(scriptPath, scriptSource, { encoding: 'utf8' }, function (error) {
                         if (error) {
                             if (error.code === "ENOENT") {
-                                fs.mkdir(parampath, function (error) {
+                                fs.mkdir(params[1], function (error) {
                                     if (error) {
                                         reject(error);
                                     }
                                     else {
-                                        console.log("created path: " + parampath);
+                                        console.log("created path: " + params[1]);
                                         fs.writeFile(scriptPath, scriptSource, { encoding: 'utf8' }, function (error) {
                                             if (error) {
                                                 reject(error);
                                             }
                                             else {
                                                 console.log("downloaded script: " + scriptPath);
-                                                resolve(scriptName);
+                                                resolve(params[0]);
                                             }
                                         });
                                     }
@@ -278,7 +286,7 @@ function downloadScript(sdsConnection, scriptName, parampath) {
                         }
                         else {
                             console.log("downloaded script: " + scriptPath);
-                            resolve(scriptName);
+                            resolve(params[0]);
                         }
                     });
                 }

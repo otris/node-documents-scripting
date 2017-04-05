@@ -18,14 +18,25 @@ let serverOperation = (sdsConnection: SDSConnection, param: any[]) => {
         resolve('');
     });
 };
+let serverOperationBackup = serverOperation;
 
 // todo param of sdsSession()
 export function setServerOperation(func) {
     serverOperation = func;
+    serverOperationBackup = func;
 }
 
 
-export async function sdsSession(loginData: config.LoginData, param: any[]): Promise<string> {
+export async function sdsSession(loginData: config.LoginData,
+                                 param: any[],
+                                 serverOperationParam?: (sds, param: any[]) => Promise<string>): Promise<string> {
+
+    if(serverOperationParam) {
+        serverOperation = serverOperationParam;
+    } else {
+        serverOperation = serverOperationBackup;
+    }
+
     return new Promise<string>((resolve, reject) => {
         if(!loginData) {
             reject('no login data');
@@ -244,14 +255,14 @@ export async function runAll(sdsConnection: SDSConnection, folder: string): Prom
 }
 
 
-export async function downloadScript(sdsConnection: SDSConnection, scriptName: string, parampath: string): Promise<string> {
+export async function downloadScript(sdsConnection: SDSConnection, params: string[]): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-        sdsConnection.callClassOperation("PortalScript.downloadScript", [scriptName]).then((retval) => {
+        sdsConnection.callClassOperation("PortalScript.downloadScript", [params[0]]).then((retval) => {
             let scriptSource: string = retval[0];
-            if(!parampath) {
+            if(!params[1]) {
                 reject('path missing');
             } else if(!scriptSource) {
-                reject('could not find ' + scriptName + ' on server');
+                reject('could not find ' + params[0] + ' on server');
             } else {
                 let lines = scriptSource.split('\n');
                 if(lines.length > 1) {
@@ -266,21 +277,21 @@ export async function downloadScript(sdsConnection: SDSConnection, scriptName: s
 
 
 
-                let scriptPath = path.join(parampath, scriptName + ".js");
+                let scriptPath = path.join(params[1], params[0] + ".js");
                 fs.writeFile(scriptPath, scriptSource, {encoding: 'utf8'}, function(error) {
                     if(error) {
                         if(error.code === "ENOENT") {
-                            fs.mkdir(parampath, function(error) {
+                            fs.mkdir(params[1], function(error) {
                                 if(error) {
                                     reject(error);
                                 } else {
-                                    console.log("created path: " + parampath);
+                                    console.log("created path: " + params[1]);
                                     fs.writeFile(scriptPath, scriptSource, {encoding: 'utf8'}, function(error) {
                                         if(error) {
                                             reject(error);
                                         } else {
                                             console.log("downloaded script: " +  scriptPath);
-                                            resolve(scriptName);
+                                            resolve(params[0]);
                                         }
                                     });
                                 }
@@ -290,7 +301,7 @@ export async function downloadScript(sdsConnection: SDSConnection, scriptName: s
                         }
                     } else {
                         console.log("downloaded script: " +  scriptPath);
-                        resolve(scriptName);
+                        resolve(params[0]);
                     }
                 });
             }

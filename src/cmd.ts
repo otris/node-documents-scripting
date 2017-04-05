@@ -50,7 +50,7 @@ program
         if (otherDirs) {
             console.log('test ' + otherDirs[0]);
             let loginData: config.LoginData = new config.LoginData(json);
-            sdsAccess.sdsSession(loginData, [json, otherDirs[0]]);
+            sdsAccess.sdsSession(loginData, [json, otherDirs[0]], undefined);
             // otherDirs.forEach(function (oDir) {
             //     console.log('test ' + oDir);
             //     sdsAccess.sdsSession(loginData, [json, oDir]);
