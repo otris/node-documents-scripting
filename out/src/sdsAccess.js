@@ -15,26 +15,8 @@ const net_1 = require("net");
 const reduce = require("reduce-for-promises");
 const node_sds_1 = require("node-sds");
 const SDS_TIMEOUT = 60 * 1000;
-let serverOperation = (sdsConnection, param) => {
-    return new Promise((resolve, reject) => {
-        resolve('');
-    });
-};
-let serverOperationBackup = serverOperation;
-// todo param of sdsSession()
-function setServerOperation(func) {
-    serverOperation = func;
-    serverOperationBackup = func;
-}
-exports.setServerOperation = setServerOperation;
-function sdsSession(loginData, param, serverOperationParam) {
+function sdsSession(loginData, param, serverOperation) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (serverOperationParam) {
-            serverOperation = serverOperationParam;
-        }
-        else {
-            serverOperation = serverOperationBackup;
-        }
         return new Promise((resolve, reject) => {
             if (!loginData) {
                 reject('no login data');
@@ -201,29 +183,45 @@ function getScriptsFromFolder(_path) {
     });
 }
 exports.getScriptsFromFolder = getScriptsFromFolder;
-function uploadAll(sdsConnection, folder) {
+function uploadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            return getScriptsFromFolder(folder).then((scripts) => {
+            return getScriptsFromFolder(params[0]).then((scripts) => {
                 return reduce(scripts, function (numscripts, _script) {
-                    return uploadScript(sdsConnection, _script.name, _script.sourceCode).then(() => {
+                    return uploadScript(sdsConnection, [_script.name, _script.sourceCode]).then(() => {
                         return numscripts + 1;
                     });
                 }, 0).then((numscripts) => {
-                    resolve(numscripts);
+                    resolve(['' + numscripts]);
                 });
             });
         });
     });
 }
 exports.uploadAll = uploadAll;
-function runAll(sdsConnection, folder) {
+function dwonloadAll(sdsConnection, params) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            return getScriptNamesFromServer(sdsConnection).then((scriptNames) => {
+                return reduce(scriptNames, function (numscripts, name) {
+                    return downloadScript(sdsConnection, [name, params[0]]).then((value) => {
+                        return numscripts + 1;
+                    });
+                }, 0).then((numscripts) => {
+                    resolve(['' + numscripts]);
+                });
+            });
+        });
+    });
+}
+exports.dwonloadAll = dwonloadAll;
+function runAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let retarray = [];
-            return getScriptsFromFolder(folder).then((scripts) => {
+            return getScriptsFromFolder(params[0]).then((scripts) => {
                 return reduce(scripts, function (acc, _script) {
-                    return runScript(sdsConnection, _script.name).then((value) => {
+                    return runScript(sdsConnection, [_script.name]).then((value) => {
                         let retval = value.join(os.EOL);
                         retarray.push(retval);
                         return acc;
@@ -248,6 +246,7 @@ function downloadScript(sdsConnection, params) {
                     reject('could not find ' + params[0] + ' on server');
                 }
                 else {
+                    // todo move to vscode
                     let lines = scriptSource.split('\n');
                     if (lines.length > 1) {
                         if (lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(")) {
@@ -258,7 +257,13 @@ function downloadScript(sdsConnection, params) {
                         }
                     }
                     scriptSource = lines.join('\n');
-                    let scriptPath = path.join(params[1], params[0] + ".js");
+                    let scriptPath;
+                    if (params[2]) {
+                        scriptPath = path.join(params[1], params[2] + ".js");
+                    }
+                    else {
+                        scriptPath = path.join(params[1], params[0] + ".js");
+                    }
                     fs.writeFile(scriptPath, scriptSource, { encoding: 'utf8' }, function (error) {
                         if (error) {
                             if (error.code === "ENOENT") {
@@ -274,7 +279,7 @@ function downloadScript(sdsConnection, params) {
                                             }
                                             else {
                                                 console.log("downloaded script: " + scriptPath);
-                                                resolve(params[0]);
+                                                resolve([params[0]]);
                                             }
                                         });
                                     }
@@ -286,7 +291,7 @@ function downloadScript(sdsConnection, params) {
                         }
                         else {
                             console.log("downloaded script: " + scriptPath);
-                            resolve(params[0]);
+                            resolve([params[0]]);
                         }
                     });
                 }
@@ -297,35 +302,41 @@ function downloadScript(sdsConnection, params) {
     });
 }
 exports.downloadScript = downloadScript;
-function uploadScript(sdsConnection, shortName, scriptSource) {
+function uploadScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            let lines = scriptSource.split('\n');
-            if (lines.length > 1) {
-                if (lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(")) {
-                    lines[0] = '// ' + lines[0];
+            if (params.length >= 2) {
+                // todo move to vscode
+                let lines = params[1].split('\n');
+                if (lines.length > 1) {
+                    if (lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(")) {
+                        lines[0] = '// ' + lines[0];
+                    }
+                    if (lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(")) {
+                        lines[1] = '// ' + lines[1];
+                    }
                 }
-                if (lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(")) {
-                    lines[1] = '// ' + lines[1];
-                }
+                params[1] = lines.join('\n');
+                sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], params[1]], true).then((value) => {
+                    console.log('uploaded: ', params[0]);
+                    resolve([params[0]]);
+                }).catch((reason) => {
+                    reject(reason);
+                });
             }
-            scriptSource = lines.join('\n');
-            sdsConnection.callClassOperation("PortalScript.uploadScript", [shortName, scriptSource], true).then((value) => {
-                console.log('uploaded shortName: ', shortName);
-                resolve(shortName);
-            }).catch((reason) => {
-                reject(reason);
-            });
+            else {
+                reject('scriptname or sourcecode missing in uploadScript');
+            }
         });
     });
 }
 exports.uploadScript = uploadScript;
-function runScript(sdsConnection, shortName) {
+function runScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            sdsConnection.callClassOperation("PortalScript.runScript", [shortName]).then((value) => {
+            sdsConnection.callClassOperation("PortalScript.runScript", [params[0]]).then((value) => {
                 if (!value || 0 === value.length) {
-                    reject('could not find ' + shortName + ' on server');
+                    reject('could not find ' + params[0] + ' on server');
                 }
                 else {
                     resolve(value);

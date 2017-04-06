@@ -17,7 +17,7 @@ const SDS_TIMEOUT: number = 60 * 1000;
 
 export async function sdsSession(loginData: config.LoginData,
                                  param: any[],
-                                 serverOperation?: (sdsConn: SDSConnection, param: string[]) => Promise<string[]>): Promise<string[]> {
+                                 serverOperation: (sdsConn: SDSConnection, param: string[]) => Promise<string[]>): Promise<string[]> {
 
     return new Promise<string[]>((resolve, reject) => {
         if(!loginData) {

@@ -15,17 +15,16 @@ exports.cmdvar = 0;
 // command options
 var program = require('commander');
 // set up sdsAccess
-sdsAccess.setServerOperation((sdsConnection, param) => documentsOperation(sdsConnection, param));
 function documentsOperation(sdsConnection, param) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            if (param.length == 2 && typeof param[0] === 'string' && typeof param[1] === 'string') {
-                sdsAccess.uploadAll(sdsConnection, param[1]).then(() => {
-                    return sdsAccess.runAll(sdsConnection, param[1]).then((retval) => {
+            if (param.length >= 1 && typeof param[0] === 'string') {
+                sdsAccess.uploadAll(sdsConnection, param).then(() => {
+                    return sdsAccess.runAll(sdsConnection, param).then((retval) => {
                         for (let i = 0; i < retval.length; i++) {
                             console.log("script " + i + ":" + os.EOL + retval[i]);
                         }
-                        resolve();
+                        resolve(['']);
                     });
                 }).catch((reason) => {
                     reject();
@@ -50,7 +49,8 @@ program
     if (otherDirs) {
         console.log('test ' + otherDirs[0]);
         let loginData = new config.LoginData(json);
-        sdsAccess.sdsSession(loginData, [json, otherDirs[0]], undefined);
+        let params = [otherDirs[0]];
+        sdsAccess.sdsSession(loginData, params, documentsOperation);
         // otherDirs.forEach(function (oDir) {
         //     console.log('test ' + oDir);
         //     sdsAccess.sdsSession(loginData, [json, oDir]);

@@ -9,8 +9,9 @@ class LoginData {
         this.principal = '';
         this.username = '';
         this.password = '';
-        this.launchjson = '';
-        this.launchjson = _launchjson;
+        if (_launchjson) {
+            this.launchjson = _launchjson;
+        }
     }
     checkLoginData() {
         console.log('checkLoginData');
