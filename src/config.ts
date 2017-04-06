@@ -10,10 +10,12 @@ export class LoginData {
     public principal: string = '';
     public username: string = '';
     public password: string = '';
-    public launchjson = '';
+    public launchjson;
 
-    constructor (_launchjson: string) {
-        this.launchjson = _launchjson;
+    constructor (_launchjson?: string) {
+        if(_launchjson) {
+            this.launchjson = _launchjson;
+        }
     }
 
 
