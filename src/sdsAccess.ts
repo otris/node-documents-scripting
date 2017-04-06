@@ -142,7 +142,7 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 
-export async function getScriptNamesFromServer(sdsConnection: SDSConnection): Promise<string[]> {
+async function getScriptNamesFromServer(sdsConnection: SDSConnection): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PortalScript.getScriptNames", []).then((scriptNames) => {
             resolve(scriptNames);

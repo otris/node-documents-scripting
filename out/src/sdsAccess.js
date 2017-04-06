@@ -132,7 +132,6 @@ function getScriptNamesFromServer(sdsConnection) {
         });
     });
 }
-exports.getScriptNamesFromServer = getScriptNamesFromServer;
 function getScript(file) {
     let s;
     if (file && '.js' === path.extname(file)) {

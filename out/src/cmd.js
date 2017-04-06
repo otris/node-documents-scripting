@@ -74,5 +74,5 @@ program.parse(process.argv);
 // =>
 // npm install git+https://github.com/otris/node-documents-scripting.git
 //
-// node .\node_modules\node-documents-scripting\out\src\cmd.js test C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder 
+// node .\node_modules\node-documents-scripting\out\src\cmd.js test C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder
 //# sourceMappingURL=cmd.js.map
