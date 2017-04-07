@@ -12,7 +12,6 @@ export type script = {name: string, sourceCode: string};
 
 const SDS_TIMEOUT: number = 60 * 1000;
 
-export const ERR_LOGIN_DATA: string = 'Login data missing';
 
 
 export async function sdsSession(loginData: config.LoginData,
@@ -25,7 +24,7 @@ export async function sdsSession(loginData: config.LoginData,
         }
 
 
-        if(loginData.ensureLoginData()) {
+        loginData.ensureLoginData().then(() => {
             console.log('ensureLoginData successful');
 
             // create socket
@@ -81,10 +80,12 @@ export async function sdsSession(loginData: config.LoginData,
                 reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
             });
 
-        } else {
-            console.log(ERR_LOGIN_DATA);
-            reject(ERR_LOGIN_DATA);
-        }
+
+
+        }).catch((reason) => {
+            console.log('Login data missing');
+            reject('Login data missing');
+        });
 
 
     });
@@ -357,6 +358,47 @@ export async function runScript(sdsConnection: SDSConnection, params: string[]):
         }).catch((reason) => {
             reject("runScript failed: " + reason);
         });
+    });
+}
+
+
+
+export async function writeFile(data, filename, allowSubFolder = false) {
+    console.log('writeConfigFile');
+
+    return new Promise<void>((resolve, reject) => {
+
+        if(path.extname(filename)) {
+            let folder = path.dirname(filename);
+            fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
+                if(error) {
+                    if(error.code === 'ENOENT' && allowSubFolder) {
+                        fs.mkdir(folder, function(error) {
+                            if(error) {
+                                reject(error);
+                            } else {
+                                console.log('created path: ' + folder);
+                                fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
+                                    if(error) {
+                                        reject(error);
+                                    } else {
+                                        console.log('wrote file: ' +  filename);
+                                        resolve();
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        reject(error);
+                    }
+                } else {
+                    console.log('wrote file: ' +  filename);
+                    resolve();
+                }
+            });
+            
+        }
+
     });
 }
 

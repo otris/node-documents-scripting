@@ -11,6 +11,7 @@ export class LoginData {
     public username: string = '';
     public password: string = '';
     public launchjson;
+    public getLoginData: (loginData: LoginData) => Promise<void>;
 
     constructor (_launchjson?: string) {
         if(_launchjson) {
@@ -55,14 +56,23 @@ export class LoginData {
         return true;
     }
 
-    public ensureLoginData(): boolean {
+    async ensureLoginData(): Promise<void> {
         console.log('ensureLoginData');
+        return new Promise<void>((resolve, reject) => {
         
-        this.loadLaunchJson();
-        if(this.checkLoginData()) {
-            return true;
-        }
-        return false;
+            this.loadLaunchJson();
+            if(this.checkLoginData()) {
+                resolve();
+            } else if(this.getLoginData) {
+                this.getLoginData(this).then(() => {
+                    resolve();
+                }).catch((reason) => {
+                    reject(reason);
+                });
+            } else {
+                reject();
+            }
+        });
     }
 
 

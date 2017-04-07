@@ -15,14 +15,13 @@ const net_1 = require("net");
 const reduce = require("reduce-for-promises");
 const node_sds_1 = require("node-sds");
 const SDS_TIMEOUT = 60 * 1000;
-exports.ERR_LOGIN_DATA = 'Login data missing';
 function sdsSession(loginData, param, serverOperation) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             if (!loginData) {
                 reject('no login data');
             }
-            if (loginData.ensureLoginData()) {
+            loginData.ensureLoginData().then(() => {
                 console.log('ensureLoginData successful');
                 // create socket
                 let sdsSocket = net_1.connect(loginData.port, loginData.server);
@@ -70,11 +69,10 @@ function sdsSession(loginData, param, serverOperation) {
                     console.log(err);
                     reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
                 });
-            }
-            else {
-                console.log(exports.ERR_LOGIN_DATA);
-                reject(exports.ERR_LOGIN_DATA);
-            }
+            }).catch((reason) => {
+                console.log('Login data missing');
+                reject('Login data missing');
+            });
         });
     });
 }
@@ -348,4 +346,45 @@ function runScript(sdsConnection, params) {
     });
 }
 exports.runScript = runScript;
+function writeFile(data, filename, allowSubFolder = false) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log('writeConfigFile');
+        return new Promise((resolve, reject) => {
+            if (path.extname(filename)) {
+                let folder = path.dirname(filename);
+                fs.writeFile(filename, data, { encoding: 'utf8' }, function (error) {
+                    if (error) {
+                        if (error.code === 'ENOENT' && allowSubFolder) {
+                            fs.mkdir(folder, function (error) {
+                                if (error) {
+                                    reject(error);
+                                }
+                                else {
+                                    console.log('created path: ' + folder);
+                                    fs.writeFile(filename, data, { encoding: 'utf8' }, function (error) {
+                                        if (error) {
+                                            reject(error);
+                                        }
+                                        else {
+                                            console.log('wrote file: ' + filename);
+                                            resolve();
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        else {
+                            reject(error);
+                        }
+                    }
+                    else {
+                        console.log('wrote file: ' + filename);
+                        resolve();
+                    }
+                });
+            }
+        });
+    });
+}
+exports.writeFile = writeFile;
 //# sourceMappingURL=sdsAccess.js.map
