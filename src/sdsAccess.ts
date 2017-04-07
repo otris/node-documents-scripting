@@ -12,11 +12,11 @@ export type script = {name: string, sourceCode: string};
 
 const SDS_TIMEOUT: number = 60 * 1000;
 
-
+export const ERR_LOGIN_DATA: string = 'Login data missing';
 
 
 export async function sdsSession(loginData: config.LoginData,
-                                 param: any[],
+                                 param: string[],
                                  serverOperation: (sdsConn: SDSConnection, param: string[]) => Promise<string[]>): Promise<string[]> {
 
     return new Promise<string[]>((resolve, reject) => {
@@ -82,8 +82,8 @@ export async function sdsSession(loginData: config.LoginData,
             });
 
         } else {
-            console.log('ensureLoginData failed');
-            reject('ensureLoginData failed');
+            console.log(ERR_LOGIN_DATA);
+            reject(ERR_LOGIN_DATA);
         }
 
 

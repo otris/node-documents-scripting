@@ -15,6 +15,7 @@ const net_1 = require("net");
 const reduce = require("reduce-for-promises");
 const node_sds_1 = require("node-sds");
 const SDS_TIMEOUT = 60 * 1000;
+exports.ERR_LOGIN_DATA = 'Login data missing';
 function sdsSession(loginData, param, serverOperation) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
@@ -71,8 +72,8 @@ function sdsSession(loginData, param, serverOperation) {
                 });
             }
             else {
-                console.log('ensureLoginData failed');
-                reject('ensureLoginData failed');
+                console.log(exports.ERR_LOGIN_DATA);
+                reject(exports.ERR_LOGIN_DATA);
             }
         });
     });

@@ -57,7 +57,9 @@ export class LoginData {
 
     public ensureLoginData(): boolean {
         console.log('ensureLoginData');
-        if(this.loadLaunchJson() && this.checkLoginData()) {
+        
+        this.loadLaunchJson();
+        if(this.checkLoginData()) {
             return true;
         }
         return false;
