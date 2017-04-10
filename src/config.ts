@@ -10,6 +10,9 @@ export class LoginData {
     public principal: string = '';
     public username: string = '';
     public password: string = '';
+    public userId;
+    // ~infinity: ms = 0x7FFFFFFF;
+    public sdsTimeout;
     public launchjson;
     public getLoginData: (loginData: LoginData) => Promise<void>;
 
@@ -46,6 +49,7 @@ export class LoginData {
                         this.principal = config.principal;
                         this.username = config.username;
                         this.password = config.password;
+                        this.sdsTimeout = config.sdsTimeout;
                     }
                 });
             }

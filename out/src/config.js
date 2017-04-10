@@ -45,6 +45,7 @@ class LoginData {
                         this.principal = config.principal;
                         this.username = config.username;
                         this.password = config.password;
+                        this.sdsTimeout = config.sdsTimeout;
                     }
                 });
             }

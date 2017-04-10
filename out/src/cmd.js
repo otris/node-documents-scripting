@@ -15,7 +15,7 @@ exports.cmdvar = 0;
 // command options
 var program = require('commander');
 // set up sdsAccess
-function documentsOperation(sdsConnection, param) {
+function uploadAndRunAll(sdsConnection, param) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             if (param.length >= 1 && typeof param[0] === 'string') {
@@ -50,7 +50,7 @@ program
         console.log('test ' + otherDirs[0]);
         let loginData = new config.LoginData(json);
         let params = [otherDirs[0]];
-        sdsAccess.sdsSession(loginData, params, documentsOperation);
+        sdsAccess.sdsSession(loginData, params, uploadAndRunAll);
         // otherDirs.forEach(function (oDir) {
         //     console.log('test ' + oDir);
         //     sdsAccess.sdsSession(loginData, [json, oDir]);

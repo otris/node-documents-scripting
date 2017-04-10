@@ -7,10 +7,11 @@ import * as reduce from 'reduce-for-promises';
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
 
+const stripBom = require('strip-bom');
 
 export type script = {name: string, sourceCode: string};
 
-const SDS_TIMEOUT: number = 60 * 1000;
+const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 
 
@@ -77,7 +78,9 @@ export async function sdsSession(loginData: config.LoginData,
             sdsSocket.on('error', (err: any) => {
                 console.log('callback socket.on(error)');
                 console.log(err);
-                reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
+
+                // only reject here if on-connect couldn't start
+                // reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
             });
 
 
@@ -95,7 +98,7 @@ export async function sdsSession(loginData: config.LoginData,
 async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<SDSConnection> {
     return new Promise<SDSConnection>((resolve, reject) => {
         let sdsConnection = new SDSConnection(sdsSocket);
-        sdsConnection.timeout = SDS_TIMEOUT;
+        sdsConnection.timeout = loginData.sdsTimeout? loginData.sdsTimeout: SDS_DEFAULT_TIMEOUT;
 
         sdsConnection.connect('vscode-documents-scripting').then(() => {
             console.log('connect successful');
@@ -107,6 +110,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
             return sdsConnection.changeUser(username, getJanusPassword(loginData.password));
 
         }).then(userId => {
+            loginData.userId = userId;
             console.log('changeUser successful');
             if (loginData.principal.length > 0) {
                 return sdsConnection.changePrincipal(loginData.principal);
@@ -171,7 +175,7 @@ export function getScript(file: string): script | string {
 }
 
 
-export async function getScriptsFromFolder(_path: string): Promise<script[]> {
+export async function getScriptsFromFolder(_path: string, namefilter?: string): Promise<script[]> {
     return new Promise<script[]>((resolve, reject) => {
     
         let scripts : script[] = [];
@@ -191,11 +195,12 @@ export async function getScriptsFromFolder(_path: string): Promise<script[]> {
             }).filter(function (file) {
                 return fs.statSync(file).isFile();
             }).forEach(function (file) {
-                if('.js' === path.extname(file)) {
+                if('.js' === path.extname(file) && (!namefilter || file.startsWith(namefilter))) {
                     let s = getScript(file);
                     if(typeof s !== 'string') {
                         scripts.push(s);
                     }
+                    // else ...reject(s)
                 }
             });
 
@@ -212,7 +217,7 @@ export async function getScriptsFromFolder(_path: string): Promise<script[]> {
 
 export async function uploadAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        return getScriptsFromFolder(params[0]).then((scripts) => {
+        return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
             return reduce(scripts, function(numscripts, _script) {
                 return uploadScript(sdsConnection, [_script.name, _script.sourceCode]).then(() => {
                     return numscripts + 1;
@@ -241,7 +246,7 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: string[]
 export async function runAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         let retarray: string[] = [];
-        return getScriptsFromFolder(params[0]).then((scripts) => {
+        return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
             return reduce(scripts, function(acc, _script) {
                 return runScript(sdsConnection, [_script.name]).then((value) => {
                     let retval: string = value.join(os.EOL);
@@ -286,31 +291,11 @@ export async function downloadScript(sdsConnection: SDSConnection, params: strin
                 } else {
                     scriptPath = path.join(params[1], params[0] + ".js");
                 }
-                fs.writeFile(scriptPath, scriptSource, {encoding: 'utf8'}, function(error) {
-                    if(error) {
-                        if(error.code === "ENOENT") {
-                            fs.mkdir(params[1], function(error) {
-                                if(error) {
-                                    reject(error);
-                                } else {
-                                    console.log("created path: " + params[1]);
-                                    fs.writeFile(scriptPath, scriptSource, {encoding: 'utf8'}, function(error) {
-                                        if(error) {
-                                            reject(error);
-                                        } else {
-                                            console.log("downloaded script: " +  scriptPath);
-                                            resolve([params[0]]);
-                                        }
-                                    });
-                                }
-                            });
-                        } else {
-                            reject(error);
-                        }
-                    } else {
-                        console.log("downloaded script: " +  scriptPath);
-                        resolve([params[0]]);
-                    }
+
+                writeFile(scriptSource, scriptPath, true).then(() => {
+                    resolve([params[0]]);
+                }).catch((reason) => {
+                    reject(reason);
                 });
             }
         }).catch((reason) => {
@@ -320,6 +305,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: strin
 }
 
 
+// const UTF8_BOM = "\xEF\xBB\xBF";
 
 export async function uploadScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
@@ -335,7 +321,9 @@ export async function uploadScript(sdsConnection: SDSConnection, params: string[
                 }
             }
             params[1] = lines.join('\n');
-            sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], params[1]], true).then((value) => {
+            let sourceCode = stripBom(params[1]);
+
+            sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], sourceCode]).then((value) => {
                 console.log('uploaded: ', params[0]);
                 resolve([params[0]]);
             }).catch((reason) => {
@@ -356,14 +344,14 @@ export async function runScript(sdsConnection: SDSConnection, params: string[]):
                 resolve(value);
             }
         }).catch((reason) => {
-            reject("runScript failed: " + reason);
+            reject(reason);
         });
     });
 }
 
 
 
-export async function writeFile(data, filename, allowSubFolder = false) {
+export async function writeFile(data, filename, allowSubFolder = false): Promise<void> {
     console.log('writeConfigFile');
 
     return new Promise<void>((resolve, reject) => {
