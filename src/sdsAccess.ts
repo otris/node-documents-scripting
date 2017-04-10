@@ -195,7 +195,8 @@ export async function getScriptsFromFolder(_path: string, namefilter?: string): 
             }).filter(function (file) {
                 return fs.statSync(file).isFile();
             }).forEach(function (file) {
-                if('.js' === path.extname(file) && (!namefilter || file.startsWith(namefilter))) {
+                let basename = path.basename(file);
+                if('.js' === path.extname(file) && (!namefilter || basename.startsWith(namefilter))) {
                     let s = getScript(file);
                     if(typeof s !== 'string') {
                         scripts.push(s);

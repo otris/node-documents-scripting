@@ -19,7 +19,7 @@ function uploadAndRunAll(sdsConnection, param) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             if (param.length >= 1 && typeof param[0] === 'string') {
-                sdsAccess.uploadAll(sdsConnection, param).then(() => {
+                sdsAccess.uploadAll(sdsConnection, [param[0]]).then(() => {
                     return sdsAccess.runAll(sdsConnection, param).then((retval) => {
                         for (let i = 0; i < retval.length; i++) {
                             console.log("script " + i + ":" + os.EOL + retval[i]);
@@ -43,17 +43,17 @@ function uploadAndRunAll(sdsConnection, param) {
 //   .parse(process.argv);
 program
     .version('0.0.1')
-    .command('test <json> [otherDirs...]')
-    .action(function (json, otherDirs) {
+    .command('test <json> [dir...]')
+    .action(function (json, dir, filter) {
     console.log('test json %s', json);
-    if (otherDirs) {
-        console.log('test ' + otherDirs[0]);
+    if (dir) {
+        console.log('test ' + dir[0]);
         let loginData = new config.LoginData(json);
-        let params = [otherDirs[0]];
+        // dir[1] == name-prefix
+        let params = [dir[0], dir[1]];
         sdsAccess.sdsSession(loginData, params, uploadAndRunAll);
-        // otherDirs.forEach(function (oDir) {
-        //     console.log('test ' + oDir);
-        //     sdsAccess.sdsSession(loginData, [json, oDir]);
+        // dir.forEach(function (dir_i) {
+        //     console.log('test ' + dir_i);
         // });
     }
     else {
@@ -74,5 +74,5 @@ program.parse(process.argv);
 // =>
 // npm install git+https://github.com/otris/node-documents-scripting.git
 //
-// node .\node_modules\node-documents-scripting\out\src\cmd.js test C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder
+// node .\node_modules\node-documents-scripting\out\src\cmd.js test C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder _test
 //# sourceMappingURL=cmd.js.map
