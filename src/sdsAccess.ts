@@ -7,8 +7,6 @@ import * as reduce from 'reduce-for-promises';
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
 
-const stripBom = require('strip-bom');
-
 export type script = {name: string, sourceCode: string};
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
@@ -263,31 +261,61 @@ export async function runAll(sdsConnection: SDSConnection, params: string[]): Pr
 
 
 
+const NODEJS_UTF8_BOM = '\ufeff';
+// not used for now...
+// actually it's only required for DOCUMENTS 4 support, in that case
+// we shouldn't send UTF 8 without BOM
+function ensureBOM(sourceCode: string): string {
+    if(sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
+        return sourceCode;
+    } else {
+        return NODEJS_UTF8_BOM + sourceCode;
+    }
+}
+function ensureNoBOM(sourceCode: string): string {
+    return sourceCode.replace(/^\ufeff/, '');
+}
+
+
+function intellisenseHelper(sourceCode: string): string {
+    let lines = sourceCode.split('\n');
+    if(lines.length > 1) {
+        
+        // toggle comment first line
+        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
+            lines[0] = '// ' + lines[0];
+        } else if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
+            lines[0] = lines[0].replace('// ', '');
+        }
+
+        // toggle comment second line
+        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
+            lines[1] = '// ' + lines[1];
+        } else if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
+            lines[1] = lines[1].replace('// ', '');
+        }
+    }
+    return lines.join('\n');
+}
+
+
+
+
 export async function downloadScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PortalScript.downloadScript", [params[0]]).then((retval) => {
-            let scriptSource: string = retval[0];
             if(!params[1]) {
                 reject('path missing');
-            } else if(!scriptSource) {
+            } else if(!retval[0]) {
                 reject('could not find ' + params[0] + ' on server');
             } else {
-                // todo move to vscode
-                let lines = scriptSource.split('\n');
-                if(lines.length > 1) {
-                    if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
-                        lines[0] = lines[0].replace('// ', '');
-                    }
-                    if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
-                        lines[1] = lines[1].replace('// ', '');
-                    }
-                }
-                scriptSource = lines.join('\n');
-
-
+                let scriptSource = intellisenseHelper(retval[0]);
+                let encryptState = retval[1];
+                console.log('encryptState: ' + encryptState);
 
                 let scriptPath;
                 if(params[2]) {
+                    // rename script on download, used e.g. for compare
                     scriptPath = path.join(params[1], params[2] + ".js");
                 } else {
                     scriptPath = path.join(params[1], params[0] + ".js");
@@ -306,25 +334,16 @@ export async function downloadScript(sdsConnection: SDSConnection, params: strin
 }
 
 
-// const UTF8_BOM = "\xEF\xBB\xBF";
 
 export async function uploadScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         if(params.length >= 2) {
-            // todo move to vscode
-            let lines = params[1].split('\n');
-            if(lines.length > 1) {
-                if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
-                    lines[0] = '// ' + lines[0];
-                }
-                if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
-                    lines[1] = '// ' + lines[1];
-                }
-            }
-            params[1] = lines.join('\n');
-            let sourceCode = stripBom(params[1]);
 
-            sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], sourceCode]).then((value) => {
+            let iSourceCode = intellisenseHelper(params[1]);
+            let sourceCode = ensureNoBOM(iSourceCode);
+            let encryptState = "false";
+
+            sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], sourceCode, encryptState]).then((value) => {
                 console.log('uploaded: ', params[0]);
                 resolve([params[0]]);
             }).catch((reason) => {
