@@ -7,15 +7,25 @@ import * as reduce from 'reduce-for-promises';
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
 
-export type script = {name: string, sourceCode: string};
-
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 
+export type scriptT = {
+    name: string,
+    sourceCode?: string,
+    encryptState?: string
+};
+
+export type scriptSettingsT = {
+    encrypted: scriptT[],
+    decrypted: scriptT[]
+};
+
+export type serverOperationT = (sdsConn: SDSConnection, param: string[], scriptSettings?: scriptSettingsT) => Promise<string[]>;
 
 export async function sdsSession(loginData: config.LoginData,
                                  param: string[],
-                                 serverOperation: (sdsConn: SDSConnection, param: string[]) => Promise<string[]>): Promise<string[]> {
+                                 serverOperation: serverOperationT): Promise<string[]> {
 
     return new Promise<string[]>((resolve, reject) => {
         if(!loginData) {
@@ -155,8 +165,8 @@ async function getScriptNamesFromServer(sdsConnection: SDSConnection): Promise<s
     });
 }
 
-export function getScript(file: string): script | string {
-    let s: script;
+export function getScript(file: string): scriptT | string {
+    let s: scriptT;
     if(file && '.js' === path.extname(file)) {
         try {
             // todo check with fs.stat because if file looks relative readFileSync
@@ -173,37 +183,35 @@ export function getScript(file: string): script | string {
 }
 
 
-export async function getScriptsFromFolder(_path: string, namefilter?: string): Promise<script[]> {
-    return new Promise<script[]>((resolve, reject) => {
+export async function getScriptsFromFolder(_path: string, nameprefix?: string): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
     
-        let scripts : script[] = [];
+        let scripts : scriptT[] = [];
 
         fs.readdir(_path, function (err, files) {
             if (err) {
-                console.log('err in readdir: ' + err);
-                reject();
-            }
-            if (!files) {
-                console.log('err in readdir: ' + err);
-                reject();
-            }
+                reject(err.message);
+            } else if (!files) {
+                reject('unexpexted error in readdir: files is empty');
+            } else {
 
-            files.map(function (file) {
-                return path.join(_path, file);
-            }).filter(function (file) {
-                return fs.statSync(file).isFile();
-            }).forEach(function (file) {
-                let basename = path.basename(file);
-                if('.js' === path.extname(file) && (!namefilter || basename.startsWith(namefilter))) {
-                    let s = getScript(file);
-                    if(typeof s !== 'string') {
-                        scripts.push(s);
+                files.map(function (file) {
+                    return path.join(_path, file);
+                }).filter(function (file) {
+                    return fs.statSync(file).isFile();
+                }).forEach(function (file) {
+                    let basename = path.basename(file);
+                    if('.js' === path.extname(file) && (!nameprefix || basename.startsWith(nameprefix))) {
+                        let s = getScript(file);
+                        if(typeof s !== 'string') {
+                            scripts.push(s);
+                        }
+                        // else ...reject(s)
                     }
-                    // else ...reject(s)
-                }
-            });
+                });
 
-            resolve(scripts);
+                resolve(scripts);
+            }
         });
     });
 }
@@ -214,29 +222,44 @@ export async function getScriptsFromFolder(_path: string, namefilter?: string): 
 
 
 
+// params[0]: folder-name
+// params[1]: name-prefix, if set, only scripts that start with that prefix are uploaded
 export async function uploadAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-            return reduce(scripts, function(numscripts, _script) {
-                return uploadScript(sdsConnection, [_script.name, _script.sourceCode]).then(() => {
+            
+            // reduce calls _uploadScript for every name in scriptNames,
+            // in doing so every call of _uploadScript is started after
+            // the previous call is finished
+             return reduce(scripts, function(numscripts, _script) {
+                return uploadScript(sdsConnection, [_script.name, _script.sourceCode, _script.encryptState]).then(() => {
+                    // this section is executed after every single _uploadScript call
                     return numscripts + 1;
                 });
             }, 0).then((numscripts) => {
+                // this section is exectuted once after all _uploadScript calls are finished
                 resolve(['' + numscripts]);
             });
         });
     });
 }
 
+// params[0]: folder-name
 export async function dwonloadAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
+        let scripts: scriptT[] = [];
         return getScriptNamesFromServer(sdsConnection).then((scriptNames) => {
-            return reduce(scriptNames, function(numscripts, name) {
-                return downloadScript(sdsConnection, [name, params[0]]).then((value) => {
-                    return numscripts + 1;
+
+            // see description of reduce in uploadAll
+            return reduce(scriptNames, function(numScripts, name) {
+                return downloadScript(sdsConnection, [name, params[0]]).then((retval) => {
+                    let encryptState = retval[0];
+                    let currScript: scriptT = {name: params[0], encryptState: encryptState};
+                    scripts.push(currScript);
+                    return numScripts + 1;
                 });
-            }, 0).then((numscripts) => {
-                resolve(['' + numscripts]);
+            }, 0).then((numScripts) => {
+                resolve(['' + numScripts]);
             });
         });
     });
@@ -244,16 +267,18 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: string[]
 
 export async function runAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        let retarray: string[] = [];
+        let allOutputs: string[] = [];
         return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-            return reduce(scripts, function(acc, _script) {
+
+            // see description of reduce in uploadAll
+            return reduce(scripts, function(numScripts, _script) {
                 return runScript(sdsConnection, [_script.name]).then((value) => {
-                    let retval: string = value.join(os.EOL);
-                    retarray.push(retval);
-                    return acc;
+                    let scriptOutput: string = value.join(os.EOL);
+                    allOutputs.push(scriptOutput);
+                    return numScripts;
                 });
-            }, 0).then((acc) => {
-                resolve(retarray);
+            }, 0).then((numScripts) => {
+                resolve(allOutputs);
             });
         });
     });
@@ -322,7 +347,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: strin
                 }
 
                 writeFile(scriptSource, scriptPath, true).then(() => {
-                    resolve([params[0]]);
+                    resolve([retval[1]]);
                 }).catch((reason) => {
                     reject(reason);
                 });

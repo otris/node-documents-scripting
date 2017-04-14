@@ -152,48 +152,55 @@ function getScript(file) {
     }
 }
 exports.getScript = getScript;
-function getScriptsFromFolder(_path, namefilter) {
+function getScriptsFromFolder(_path, nameprefix) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let scripts = [];
             fs.readdir(_path, function (err, files) {
                 if (err) {
-                    console.log('err in readdir: ' + err);
-                    reject();
+                    reject(err.message);
                 }
-                if (!files) {
-                    console.log('err in readdir: ' + err);
-                    reject();
+                else if (!files) {
+                    reject('unexpexted error in readdir: files is empty');
                 }
-                files.map(function (file) {
-                    return path.join(_path, file);
-                }).filter(function (file) {
-                    return fs.statSync(file).isFile();
-                }).forEach(function (file) {
-                    let basename = path.basename(file);
-                    if ('.js' === path.extname(file) && (!namefilter || basename.startsWith(namefilter))) {
-                        let s = getScript(file);
-                        if (typeof s !== 'string') {
-                            scripts.push(s);
+                else {
+                    files.map(function (file) {
+                        return path.join(_path, file);
+                    }).filter(function (file) {
+                        return fs.statSync(file).isFile();
+                    }).forEach(function (file) {
+                        let basename = path.basename(file);
+                        if ('.js' === path.extname(file) && (!nameprefix || basename.startsWith(nameprefix))) {
+                            let s = getScript(file);
+                            if (typeof s !== 'string') {
+                                scripts.push(s);
+                            }
+                            // else ...reject(s)
                         }
-                        // else ...reject(s)
-                    }
-                });
-                resolve(scripts);
+                    });
+                    resolve(scripts);
+                }
             });
         });
     });
 }
 exports.getScriptsFromFolder = getScriptsFromFolder;
+// params[0]: folder-name
+// params[1]: name-prefix, if set, only scripts that start with that prefix are uploaded
 function uploadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
+                // reduce calls _uploadScript for every name in scriptNames,
+                // in doing so every call of _uploadScript is started after
+                // the previous call is finished
                 return reduce(scripts, function (numscripts, _script) {
-                    return uploadScript(sdsConnection, [_script.name, _script.sourceCode]).then(() => {
+                    return uploadScript(sdsConnection, [_script.name, _script.sourceCode, _script.encryptState]).then(() => {
+                        // this section is executed after every single _uploadScript call
                         return numscripts + 1;
                     });
                 }, 0).then((numscripts) => {
+                    // this section is exectuted once after all _uploadScript calls are finished
                     resolve(['' + numscripts]);
                 });
             });
@@ -201,16 +208,22 @@ function uploadAll(sdsConnection, params) {
     });
 }
 exports.uploadAll = uploadAll;
+// params[0]: folder-name
 function dwonloadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
+            let scripts = [];
             return getScriptNamesFromServer(sdsConnection).then((scriptNames) => {
-                return reduce(scriptNames, function (numscripts, name) {
-                    return downloadScript(sdsConnection, [name, params[0]]).then((value) => {
-                        return numscripts + 1;
+                // see description of reduce in uploadAll
+                return reduce(scriptNames, function (numScripts, name) {
+                    return downloadScript(sdsConnection, [name, params[0]]).then((retval) => {
+                        let encryptState = retval[0];
+                        let currScript = { name: params[0], encryptState: encryptState };
+                        scripts.push(currScript);
+                        return numScripts + 1;
                     });
-                }, 0).then((numscripts) => {
-                    resolve(['' + numscripts]);
+                }, 0).then((numScripts) => {
+                    resolve(['' + numScripts]);
                 });
             });
         });
@@ -220,16 +233,17 @@ exports.dwonloadAll = dwonloadAll;
 function runAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            let retarray = [];
+            let allOutputs = [];
             return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-                return reduce(scripts, function (acc, _script) {
+                // see description of reduce in uploadAll
+                return reduce(scripts, function (numScripts, _script) {
                     return runScript(sdsConnection, [_script.name]).then((value) => {
-                        let retval = value.join(os.EOL);
-                        retarray.push(retval);
-                        return acc;
+                        let scriptOutput = value.join(os.EOL);
+                        allOutputs.push(scriptOutput);
+                        return numScripts;
                     });
-                }, 0).then((acc) => {
-                    resolve(retarray);
+                }, 0).then((numScripts) => {
+                    resolve(allOutputs);
                 });
             });
         });
@@ -294,7 +308,7 @@ function downloadScript(sdsConnection, params) {
                         scriptPath = path.join(params[1], params[0] + ".js");
                     }
                     writeFile(scriptSource, scriptPath, true).then(() => {
-                        resolve([params[0]]);
+                        resolve([retval[1]]);
                     }).catch((reason) => {
                         reject(reason);
                     });
