@@ -40,6 +40,7 @@ function sdsSession(loginData, param, serverOperation) {
                 reject('no login data');
             }
             loginData.ensureLoginData().then(() => {
+                let onConnect = false;
                 console.log('ensureLoginData successful');
                 // create socket
                 let sdsSocket = net_1.connect(loginData.port, loginData.server);
@@ -47,6 +48,7 @@ function sdsSession(loginData, param, serverOperation) {
                 // actual function (serverOperation) is in callback function on-connect
                 // callback on-connect
                 sdsSocket.on('connect', () => {
+                    onConnect = true;
                     console.log('callback socket.on(connect)');
                     doLogin(loginData, sdsSocket).then((sdsConnection) => {
                         // call serverOperation and then close the connection in any case
@@ -85,6 +87,12 @@ function sdsSession(loginData, param, serverOperation) {
                 sdsSocket.on('error', (err) => {
                     console.log('callback socket.on(error)');
                     console.log(err);
+                    if (onConnect) {
+                        // reject is executed in on('connect') callback 
+                    }
+                    else {
+                        reject(err);
+                    }
                     // only reject here if on-connect couldn't start
                     // reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
                 });
