@@ -91,6 +91,7 @@ function sdsSession(loginData, param, serverOperation) {
                         // reject is executed in on('connect') callback 
                     }
                     else {
+                        // on('connect') is not executed, so we must reject here
                         reject(err);
                     }
                     // only reject here if on-connect couldn't start
