@@ -25,7 +25,6 @@
     "commander": "^2.9.0",
     "node-sds": "git+https://git@github.com/otris/node-sds.git",
     "reduce-for-promises": "^1.2.1",
-    "strip-bom": "^3.0.0",
     "strip-json-comments": "^2.0.1"
   }
 }
