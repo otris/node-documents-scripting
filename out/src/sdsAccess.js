@@ -15,6 +15,24 @@ const net_1 = require("net");
 const reduce = require("reduce-for-promises");
 const node_sds_1 = require("node-sds");
 const SDS_DEFAULT_TIMEOUT = 60 * 1000;
+/**
+ * encrypt states of scripts
+ */
+var encrypted;
+(function (encrypted) {
+    /**
+     * server script and local script are both not encrypted
+     */
+    encrypted[encrypted["false"] = 0] = "false";
+    /**
+     * server script and local script are encrypted
+     */
+    encrypted[encrypted["true"] = 1] = "true";
+    /**
+     * server script is encrypted, local script is decrypted
+     */
+    encrypted[encrypted["decrypted"] = 2] = "decrypted";
+})(encrypted = exports.encrypted || (exports.encrypted = {}));
 function sdsSession(loginData, param, serverOperation) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
@@ -71,8 +89,7 @@ function sdsSession(loginData, param, serverOperation) {
                     // reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
                 });
             }).catch((reason) => {
-                console.log('Login data missing');
-                reject('Login data missing');
+                reject(reason);
             });
         });
     });
@@ -122,17 +139,23 @@ function closeConnection(sdsConnection) {
         });
     });
 }
-function getScriptNamesFromServer(sdsConnection) {
+function getScriptNamesFromServer(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             sdsConnection.callClassOperation("PortalScript.getScriptNames", []).then((scriptNames) => {
-                resolve(scriptNames);
+                let scripts = [];
+                scriptNames.forEach(function (scriptname) {
+                    let script = { name: scriptname };
+                    scripts.push(script);
+                });
+                resolve(scripts);
             }).catch((reason) => {
                 reject("getScriptNames() failed: " + reason);
             });
         });
     });
 }
+exports.getScriptNamesFromServer = getScriptNamesFromServer;
 function getScript(file) {
     let s;
     if (file && '.js' === path.extname(file)) {
@@ -185,66 +208,65 @@ function getScriptsFromFolder(_path, nameprefix) {
     });
 }
 exports.getScriptsFromFolder = getScriptsFromFolder;
-// params[0]: folder-name
-// params[1]: name-prefix, if set, only scripts that start with that prefix are uploaded
+// params: array containing all scripts to upload
+// return: array containing all uploaded scripts, should be equal to params
 function uploadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-                // reduce calls _uploadScript for every name in scriptNames,
-                // in doing so every call of _uploadScript is started after
-                // the previous call is finished
-                return reduce(scripts, function (numscripts, _script) {
-                    return uploadScript(sdsConnection, [_script.name, _script.sourceCode, _script.encryptState]).then(() => {
-                        // this section is executed after every single _uploadScript call
-                        return numscripts + 1;
-                    });
-                }, 0).then((numscripts) => {
-                    // this section is exectuted once after all _uploadScript calls are finished
-                    resolve(['' + numscripts]);
+            let scripts = [];
+            // reduce calls _uploadScript for every name in scriptNames,
+            // in doing so every call of _uploadScript is started after
+            // the previous call is finished
+            return reduce(params, function (numscripts, _script) {
+                return uploadScript(sdsConnection, [_script]).then(() => {
+                    // this section is executed after every single _uploadScript call
+                    scripts.push(_script);
+                    return numscripts + 1;
                 });
+            }, 0).then((numscripts) => {
+                // this section is exectuted once after all _uploadScript calls are finished
+                resolve(scripts);
             });
         });
     });
 }
 exports.uploadAll = uploadAll;
-// params[0]: folder-name
+// params: array containing all scripts to download
+// return: array containing all downloaded scripts, including the source-code
 function dwonloadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            let scripts = [];
-            return getScriptNamesFromServer(sdsConnection).then((scriptNames) => {
-                // see description of reduce in uploadAll
-                return reduce(scriptNames, function (numScripts, name) {
-                    return downloadScript(sdsConnection, [name, params[0]]).then((retval) => {
-                        let encryptState = retval[0];
-                        let currScript = { name: params[0], encryptState: encryptState };
-                        scripts.push(currScript);
-                        return numScripts + 1;
-                    });
-                }, 0).then((numScripts) => {
-                    resolve(['' + numScripts]);
+            let returnScripts = [];
+            let scripts = params;
+            // see description of reduce in uploadAll
+            return reduce(scripts, function (numScripts, script) {
+                return downloadScript(sdsConnection, [script]).then((retval) => {
+                    let currentScript = retval[0];
+                    returnScripts.push(currentScript);
+                    return numScripts + 1;
                 });
+            }, 0).then((numScripts) => {
+                resolve(returnScripts);
             });
         });
     });
 }
 exports.dwonloadAll = dwonloadAll;
+// params: array containing all scripts to execute
+// return: array containing all executed scripts, including the output
 function runAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            let allOutputs = [];
-            return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-                // see description of reduce in uploadAll
-                return reduce(scripts, function (numScripts, _script) {
-                    return runScript(sdsConnection, [_script.name]).then((value) => {
-                        let scriptOutput = value.join(os.EOL);
-                        allOutputs.push(scriptOutput);
-                        return numScripts;
-                    });
-                }, 0).then((numScripts) => {
-                    resolve(allOutputs);
+            let scripts = [];
+            // see description of reduce in uploadAll
+            return reduce(params, function (numScripts, _script) {
+                return runScript(sdsConnection, [_script]).then((value) => {
+                    let script = value[0];
+                    scripts.push(script);
+                    return numScripts;
                 });
+            }, 0).then((numScripts) => {
+                resolve(scripts);
             });
         });
     });
@@ -252,8 +274,8 @@ function runAll(sdsConnection, params) {
 exports.runAll = runAll;
 const NODEJS_UTF8_BOM = '\ufeff';
 // not used for now...
-// actually it's only required for DOCUMENTS 4 support, in that case
-// we shouldn't send UTF 8 without BOM
+// actually it's only required for DOCUMENTS 4 support,
+// in that case we shouldn't send UTF 8 without BOM
 function ensureBOM(sourceCode) {
     if (sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
         return sourceCode;
@@ -288,27 +310,36 @@ function intellisenseHelper(sourceCode) {
 function downloadScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            sdsConnection.callClassOperation("PortalScript.downloadScript", [params[0]]).then((retval) => {
-                if (!params[1]) {
+            let script = params[0];
+            sdsConnection.callClassOperation("PortalScript.downloadScript", [script.name]).then((retval) => {
+                if (!script.path) {
                     reject('path missing');
                 }
                 else if (!retval[0]) {
-                    reject('could not find ' + params[0] + ' on server');
+                    reject('could not find ' + script.name + ' on server');
                 }
                 else {
                     let scriptSource = intellisenseHelper(retval[0]);
-                    let encryptState = retval[1];
-                    console.log('encryptState: ' + encryptState);
+                    let _encryptState = retval[1];
                     let scriptPath;
-                    if (params[2]) {
-                        // rename script on download, used e.g. for compare
-                        scriptPath = path.join(params[1], params[2] + ".js");
+                    if (script.rename) {
+                        // rename script on download, only used for compare by now
+                        scriptPath = path.join(script.path ? script.path : '', script.rename + ".js");
                     }
                     else {
-                        scriptPath = path.join(params[1], params[0] + ".js");
+                        scriptPath = path.join(script.path ? script.path : '', script.name + ".js");
                     }
                     writeFile(scriptSource, scriptPath, true).then(() => {
-                        resolve([retval[1]]);
+                        if (_encryptState === 'true') {
+                            script.encryptState = encrypted.true;
+                        }
+                        else if (_encryptState === 'decrypted') {
+                            script.encryptState = encrypted.decrypted;
+                        }
+                        else {
+                            script.encryptState = encrypted.false;
+                        }
+                        resolve([script]);
                     }).catch((reason) => {
                         reject(reason);
                     });
@@ -323,13 +354,23 @@ exports.downloadScript = downloadScript;
 function uploadScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            if (params.length >= 2) {
-                let iSourceCode = intellisenseHelper(params[1]);
+            let script = params[0];
+            if (script.sourceCode) {
+                let iSourceCode = intellisenseHelper(script.sourceCode);
                 let sourceCode = ensureNoBOM(iSourceCode);
-                let encryptState = "false";
-                sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], sourceCode, encryptState]).then((value) => {
-                    console.log('uploaded: ', params[0]);
-                    resolve([params[0]]);
+                let paramScript = [script.name, sourceCode];
+                if (script.encryptState === encrypted.true) {
+                    paramScript.push('true');
+                }
+                else if (script.encryptState === encrypted.decrypted) {
+                    paramScript.push('decrypted');
+                }
+                else {
+                    paramScript.push('false');
+                }
+                sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                    console.log('uploaded: ', script.name);
+                    resolve([script]);
                 }).catch((reason) => {
                     reject(reason);
                 });
@@ -344,12 +385,14 @@ exports.uploadScript = uploadScript;
 function runScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            sdsConnection.callClassOperation("PortalScript.runScript", [params[0]]).then((value) => {
+            let script = params[0];
+            sdsConnection.callClassOperation("PortalScript.runScript", [script.name]).then((value) => {
                 if (!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 }
                 else {
-                    resolve(value);
+                    script.output = value.join(os.EOL);
+                    resolve([script]);
                 }
             }).catch((reason) => {
                 reject(reason);
@@ -360,10 +403,10 @@ function runScript(sdsConnection, params) {
 exports.runScript = runScript;
 function writeFile(data, filename, allowSubFolder = false) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log('writeConfigFile');
+        console.log('writeFile');
         return new Promise((resolve, reject) => {
-            if (path.extname(filename)) {
-                let folder = path.dirname(filename);
+            let folder = path.dirname(filename);
+            if (folder && path.extname(filename)) {
                 fs.writeFile(filename, data, { encoding: 'utf8' }, function (error) {
                     if (error) {
                         if (error.code === 'ENOENT' && allowSubFolder) {
@@ -394,6 +437,9 @@ function writeFile(data, filename, allowSubFolder = false) {
                         resolve();
                     }
                 });
+            }
+            else {
+                reject('error in filename');
             }
         });
     });

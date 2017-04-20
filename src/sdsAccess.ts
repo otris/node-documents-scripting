@@ -10,24 +10,49 @@ import * as config from './config';
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 
+/**
+ * encrypt states of scripts
+ */
+export enum encrypted {
+    /**
+     * server script and local script are both not encrypted
+     */
+    false = 0,
+
+    /**
+     * server script and local script are encrypted
+     */
+    true = 1,
+
+    /**
+     * server script is encrypted, local script is decrypted
+     */
+    decrypted = 2
+}
+
+/**
+ * todo:
+ * maybe a class with default empty string members
+ * would be better here...
+ */
 export type scriptT = {
     name: string,
+    rename?: string,
     sourceCode?: string,
-    encryptState?: string
+    output?: string,
+    encryptState?: encrypted,
+    path?: string
 };
 
-export type scriptSettingsT = {
-    encrypted: scriptT[],
-    decrypted: scriptT[]
-};
 
-export type serverOperationT = (sdsConn: SDSConnection, param: string[], scriptSettings?: scriptSettingsT) => Promise<string[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: scriptT[]) => Promise<scriptT[]>;
+
 
 export async function sdsSession(loginData: config.LoginData,
-                                 param: string[],
-                                 serverOperation: serverOperationT): Promise<string[]> {
+                                 param: scriptT[],
+                                 serverOperation: serverOperationT): Promise<scriptT[]> {
 
-    return new Promise<string[]>((resolve, reject) => {
+    return new Promise<scriptT[]>((resolve, reject) => {
         if(!loginData) {
             reject('no login data');
         }
@@ -94,8 +119,7 @@ export async function sdsSession(loginData: config.LoginData,
 
 
         }).catch((reason) => {
-            console.log('Login data missing');
-            reject('Login data missing');
+            reject(reason);
         });
 
 
@@ -154,11 +178,15 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 
-
-async function getScriptNamesFromServer(sdsConnection: SDSConnection): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
+export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PortalScript.getScriptNames", []).then((scriptNames) => {
-            resolve(scriptNames);
+            let scripts: scriptT[] = [];
+            scriptNames.forEach(function(scriptname) {
+                let script: scriptT = {name: scriptname};
+                scripts.push(script);
+            });
+            resolve(scripts);
         }).catch((reason) => {
             reject("getScriptNames() failed: " + reason);
         });
@@ -221,65 +249,64 @@ export async function getScriptsFromFolder(_path: string, nameprefix?: string): 
 
 
 
-
-// params[0]: folder-name
-// params[1]: name-prefix, if set, only scripts that start with that prefix are uploaded
-export async function uploadAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-            
-            // reduce calls _uploadScript for every name in scriptNames,
-            // in doing so every call of _uploadScript is started after
-            // the previous call is finished
-             return reduce(scripts, function(numscripts, _script) {
-                return uploadScript(sdsConnection, [_script.name, _script.sourceCode, _script.encryptState]).then(() => {
+// params: array containing all scripts to upload
+// return: array containing all uploaded scripts, should be equal to params
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let scripts: scriptT[] = [];
+        
+        // reduce calls _uploadScript for every name in scriptNames,
+        // in doing so every call of _uploadScript is started after
+        // the previous call is finished
+            return reduce(params, function(numscripts, _script) {
+                return uploadScript(sdsConnection, [_script]).then(() => {
                     // this section is executed after every single _uploadScript call
+                    scripts.push(_script);
                     return numscripts + 1;
                 });
             }, 0).then((numscripts) => {
                 // this section is exectuted once after all _uploadScript calls are finished
-                resolve(['' + numscripts]);
-            });
+                resolve(scripts);
         });
     });
 }
 
-// params[0]: folder-name
-export async function dwonloadAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
+
+// params: array containing all scripts to download
+// return: array containing all downloaded scripts, including the source-code
+export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let returnScripts: scriptT[] = [];
+        let scripts: scriptT[] = params;
+
+        // see description of reduce in uploadAll
+        return reduce(scripts, function(numScripts, script) {
+            return downloadScript(sdsConnection, [script]).then((retval) => {
+                let currentScript: scriptT = retval[0];
+                returnScripts.push(currentScript);
+                return numScripts + 1;
+            });
+        }, 0).then((numScripts) => {
+            resolve(returnScripts);
+        });
+    });
+}
+
+// params: array containing all scripts to execute
+// return: array containing all executed scripts, including the output
+export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
-        return getScriptNamesFromServer(sdsConnection).then((scriptNames) => {
 
-            // see description of reduce in uploadAll
-            return reduce(scriptNames, function(numScripts, name) {
-                return downloadScript(sdsConnection, [name, params[0]]).then((retval) => {
-                    let encryptState = retval[0];
-                    let currScript: scriptT = {name: params[0], encryptState: encryptState};
-                    scripts.push(currScript);
-                    return numScripts + 1;
-                });
-            }, 0).then((numScripts) => {
-                resolve(['' + numScripts]);
+        // see description of reduce in uploadAll
+        return reduce(params, function(numScripts, _script) {
+            return runScript(sdsConnection, [_script]).then((value) => {
+                let script: scriptT = value[0];
+                scripts.push(script);
+                return numScripts;
             });
-        });
-    });
-}
-
-export async function runAll(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        let allOutputs: string[] = [];
-        return getScriptsFromFolder(params[0], params[1]).then((scripts) => {
-
-            // see description of reduce in uploadAll
-            return reduce(scripts, function(numScripts, _script) {
-                return runScript(sdsConnection, [_script.name]).then((value) => {
-                    let scriptOutput: string = value.join(os.EOL);
-                    allOutputs.push(scriptOutput);
-                    return numScripts;
-                });
-            }, 0).then((numScripts) => {
-                resolve(allOutputs);
-            });
+        }, 0).then((numScripts) => {
+            resolve(scripts);
         });
     });
 }
@@ -288,8 +315,8 @@ export async function runAll(sdsConnection: SDSConnection, params: string[]): Pr
 
 const NODEJS_UTF8_BOM = '\ufeff';
 // not used for now...
-// actually it's only required for DOCUMENTS 4 support, in that case
-// we shouldn't send UTF 8 without BOM
+// actually it's only required for DOCUMENTS 4 support,
+// in that case we shouldn't send UTF 8 without BOM
 function ensureBOM(sourceCode: string): string {
     if(sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
         return sourceCode;
@@ -326,28 +353,35 @@ function intellisenseHelper(sourceCode: string): string {
 
 
 
-export async function downloadScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation("PortalScript.downloadScript", [params[0]]).then((retval) => {
-            if(!params[1]) {
+export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let script: scriptT = params[0];
+        sdsConnection.callClassOperation("PortalScript.downloadScript", [script.name]).then((retval) => {
+            if(!script.path) {
                 reject('path missing');
             } else if(!retval[0]) {
-                reject('could not find ' + params[0] + ' on server');
+                reject('could not find ' + script.name + ' on server');
             } else {
                 let scriptSource = intellisenseHelper(retval[0]);
-                let encryptState = retval[1];
-                console.log('encryptState: ' + encryptState);
+                let _encryptState = retval[1];
 
                 let scriptPath;
-                if(params[2]) {
-                    // rename script on download, used e.g. for compare
-                    scriptPath = path.join(params[1], params[2] + ".js");
+                if(script.rename) {
+                    // rename script on download, only used for compare by now
+                    scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                 } else {
-                    scriptPath = path.join(params[1], params[0] + ".js");
+                    scriptPath = path.join(script.path? script.path: '', script.name + ".js");
                 }
 
                 writeFile(scriptSource, scriptPath, true).then(() => {
-                    resolve([retval[1]]);
+                    if(_encryptState === 'true') {
+                        script.encryptState = encrypted.true;
+                    } else if(_encryptState === 'decrypted') {
+                        script.encryptState = encrypted.decrypted;
+                    } else {
+                        script.encryptState = encrypted.false;
+                    }
+                    resolve([script]);
                 }).catch((reason) => {
                     reject(reason);
                 });
@@ -360,17 +394,25 @@ export async function downloadScript(sdsConnection: SDSConnection, params: strin
 
 
 
-export async function uploadScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        if(params.length >= 2) {
+export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let script: scriptT = params[0];
+        if(script.sourceCode) {
 
-            let iSourceCode = intellisenseHelper(params[1]);
+            let iSourceCode = intellisenseHelper(script.sourceCode);
             let sourceCode = ensureNoBOM(iSourceCode);
-            let encryptState = "false";
+            let paramScript = [script.name, sourceCode];
+            if(script.encryptState === encrypted.true) {
+                paramScript.push('true');
+            } else if(script.encryptState === encrypted.decrypted) {
+                paramScript.push('decrypted');
+            } else {
+                paramScript.push('false');
+            }
 
-            sdsConnection.callClassOperation("PortalScript.uploadScript", [params[0], sourceCode, encryptState]).then((value) => {
-                console.log('uploaded: ', params[0]);
-                resolve([params[0]]);
+            sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                console.log('uploaded: ', script.name);
+                resolve([script]);
             }).catch((reason) => {
                 reject(reason);
             });
@@ -380,13 +422,15 @@ export async function uploadScript(sdsConnection: SDSConnection, params: string[
     });
 }
 
-export async function runScript(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation("PortalScript.runScript", [params[0]]).then((value) => {
+export async function runScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let script: scriptT = params[0];
+        sdsConnection.callClassOperation("PortalScript.runScript", [script.name]).then((value) => {
             if(!value || 0 === value.length) {
                 reject('could not find ' + params[0] + ' on server');
             } else {
-                resolve(value);
+                script.output = value.join(os.EOL);
+                resolve([script]);
             }
         }).catch((reason) => {
             reject(reason);
@@ -397,12 +441,12 @@ export async function runScript(sdsConnection: SDSConnection, params: string[]):
 
 
 export async function writeFile(data, filename, allowSubFolder = false): Promise<void> {
-    console.log('writeConfigFile');
+    console.log('writeFile');
 
     return new Promise<void>((resolve, reject) => {
 
-        if(path.extname(filename)) {
-            let folder = path.dirname(filename);
+        let folder = path.dirname(filename);
+        if(folder && path.extname(filename)) {
             fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
                 if(error) {
                     if(error.code === 'ENOENT' && allowSubFolder) {
@@ -429,9 +473,9 @@ export async function writeFile(data, filename, allowSubFolder = false): Promise
                     resolve();
                 }
             });
-            
+        } else {
+            reject('error in filename');
         }
-
     });
 }
 

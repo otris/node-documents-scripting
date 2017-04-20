@@ -15,24 +15,25 @@ exports.cmdvar = 0;
 // command options
 var program = require('commander');
 // set up sdsAccess
-function uploadAndRunAll(sdsConnection, param) {
+function uploadAndRunAll(loginData, folder, prefix) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
-            if (param.length >= 1 && typeof param[0] === 'string') {
-                sdsAccess.uploadAll(sdsConnection, [param[0]]).then(() => {
-                    return sdsAccess.runAll(sdsConnection, param).then((retval) => {
-                        for (let i = 0; i < retval.length; i++) {
-                            console.log("script " + i + ":" + os.EOL + retval[i]);
-                        }
-                        resolve(['']);
+            let scripts = [];
+            sdsAccess.getScriptsFromFolder(folder).then((_upscripts) => {
+                return sdsAccess.sdsSession(loginData, _upscripts, sdsAccess.uploadAll).then(() => {
+                    return sdsAccess.getScriptsFromFolder(folder, prefix).then((_runscripts) => {
+                        return sdsAccess.sdsSession(loginData, _runscripts, sdsAccess.runAll).then((retval) => {
+                            for (let i = 0; i < retval.length; i++) {
+                                scripts.push(retval[i]);
+                                console.log("script " + i + ":" + os.EOL + retval[i].sourceCode);
+                            }
+                            resolve(scripts);
+                        });
                     });
-                }).catch((reason) => {
-                    reject();
                 });
-            }
-            else {
-                reject('incorrect parameter type');
-            }
+            }).catch((reason) => {
+                reject();
+            });
         });
     });
 }
@@ -51,7 +52,7 @@ program
         let loginData = new config.LoginData(json);
         // dir[1] == name-prefix
         let params = [dir[0], dir[1]];
-        sdsAccess.sdsSession(loginData, params, uploadAndRunAll);
+        uploadAndRunAll(loginData, dir[0], dir[1]);
         // dir.forEach(function (dir_i) {
         //     console.log('test ' + dir_i);
         // });

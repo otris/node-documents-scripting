@@ -39,7 +39,7 @@ class LoginData {
             const configurations = jsonObject.configurations;
             if (configurations) {
                 configurations.forEach((config) => {
-                    if (config.request == 'launch') {
+                    if (config.type === 'janus' && config.request === 'launch') {
                         this.server = config.host;
                         this.port = config.applicationPort;
                         this.principal = config.principal;
@@ -59,13 +59,21 @@ class LoginData {
         return __awaiter(this, void 0, void 0, function* () {
             console.log('ensureLoginData');
             return new Promise((resolve, reject) => {
+                // todo: change to callback to make it
+                // independend from special file launch.json
                 this.loadLaunchJson();
                 if (this.checkLoginData()) {
                     resolve();
                 }
                 else if (this.getLoginData) {
+                    // is this ok? maybe change to callback parameter...
                     this.getLoginData(this).then(() => {
-                        resolve();
+                        if (this.checkLoginData()) {
+                            resolve();
+                        }
+                        else {
+                            reject('getting login data failed');
+                        }
                     }).catch((reason) => {
                         reject(reason);
                     });
