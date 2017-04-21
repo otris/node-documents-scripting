@@ -148,6 +148,20 @@ function closeConnection(sdsConnection) {
         });
     });
 }
+function getDocumentsVersion(sdsConnection, params) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            sdsConnection.callClassOperation("PartnerNet.getVersionNo", []).then((value) => {
+                let docVersion = value[0];
+                let script = { name: 'VersionNo', documentsVersion: docVersion };
+                resolve([script]);
+            }).catch((reason) => {
+                reject("getDocumentsVersion failed: " + reason);
+            });
+        });
+    });
+}
+exports.getDocumentsVersion = getDocumentsVersion;
 function getScriptNamesFromServer(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
@@ -159,7 +173,7 @@ function getScriptNamesFromServer(sdsConnection, params) {
                 });
                 resolve(scripts);
             }).catch((reason) => {
-                reject("getScriptNames() failed: " + reason);
+                reject("getScriptNamesFromServer failed: " + reason);
             });
         });
     });

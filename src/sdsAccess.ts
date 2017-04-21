@@ -41,7 +41,8 @@ export type scriptT = {
     sourceCode?: string,
     output?: string,
     encryptState?: encrypted,
-    path?: string
+    path?: string,
+    documentsVersion?: string
 };
 
 
@@ -185,6 +186,19 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 
+export async function getDocumentsVersion(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        sdsConnection.callClassOperation("PartnerNet.getVersionNo", []).then((value) => {
+            let docVersion = value[0];
+            let script: scriptT = {name: 'VersionNo', documentsVersion: docVersion};
+            resolve([script]);
+        }).catch((reason) => {
+            reject("getDocumentsVersion failed: " + reason);
+        });
+    });
+}
+
+
 
 export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
@@ -196,7 +210,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
             });
             resolve(scripts);
         }).catch((reason) => {
-            reject("getScriptNames() failed: " + reason);
+            reject("getScriptNamesFromServer failed: " + reason);
         });
     });
 }
