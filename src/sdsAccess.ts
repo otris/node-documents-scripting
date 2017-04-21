@@ -46,14 +46,14 @@ export type scriptT = {
 };
 
 
-export type serverOperationT = (sdsConn: SDSConnection, param: scriptT[]) => Promise<scriptT[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: any[]) => Promise<any[]>;
 
 
 export async function sdsSession(loginData: config.LoginData,
-                                 param: scriptT[],
-                                 serverOperation: serverOperationT): Promise<scriptT[]> {
+                                 param: any[],
+                                 serverOperation: serverOperationT): Promise<any[]> {
 
-    return new Promise<scriptT[]>((resolve, reject) => {
+    return new Promise<any[]>((resolve, reject) => {
         if(!loginData) {
             reject('no login data');
         }
