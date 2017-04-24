@@ -33,25 +33,7 @@ export enum encrypted {
     decrypted = 2
 }
 
-/**
- * modes for uploading a script
- */
-export enum upload {
-    /**
-     * don't upload if script has changed on server
-     */
-    default = 0,
 
-    /**
-     * upload always, don't care about changes on server
-     */
-    force = 1,
-
-    /**
-     * if script on server has changed, show changes to user
-     */
-    conflict = 2
-}
 
 export type scriptT = {
     name: string,
@@ -61,8 +43,7 @@ export type scriptT = {
     output?: string,
     encrypted?: encrypted,
     path?: string,
-    upload?: boolean,
-    uploadMode?: upload
+    overwrite?: boolean
 };
 
 export type documentsT = {
@@ -470,7 +451,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     } else {
                         script.encrypted = encrypted.false;
                     }
-                    if(script.uploadMode !== upload.force) {
+                    if(!script.overwrite) {
                         script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
                     }
                     resolve([script]);
@@ -495,8 +476,8 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 export async function checkForUpload(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let script: scriptT = params[0];
-        if(script.uploadMode === upload.force) {
-            console.log('checkForUpload: force upload');
+        if(script.overwrite) {
+            console.log('checkForUpload: overwrite');
             resolve([]);
         } else {
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
@@ -535,11 +516,11 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             } else {
                 paramScript.push('false');
             }
-            if(script.uploadMode !== upload.force) {
-                script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
-            }
 
             sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                if(!script.overwrite) {
+                    script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
+                }
                 console.log('uploaded: ', script.name);
                 resolve([script]);
             }).catch((reason) => {
