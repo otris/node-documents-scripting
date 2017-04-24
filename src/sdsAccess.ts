@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { connect, Socket } from 'net';
 import * as reduce from 'reduce-for-promises';
+// let lastSyncHash = crypto.createHash('md5').update(data).digest("hex");
+import * as crypto from 'crypto';
 
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
@@ -12,6 +14,7 @@ const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 /**
  * encrypt states of scripts
+ * default is false
  */
 export enum encrypted {
     /**
@@ -31,19 +34,41 @@ export enum encrypted {
 }
 
 /**
- * todo:
- * maybe a class with default empty string members
- * would be better here...
+ * modes for uploading a script
  */
+export enum upload {
+    /**
+     * don't upload if script has changed on server
+     */
+    default = 0,
+
+    /**
+     * upload always, don't care about changes on server
+     */
+    force = 1,
+
+    /**
+     * if script on server has changed, show changes to user
+     */
+    conflict = 2
+}
+
 export type scriptT = {
     name: string,
     rename?: string,
     sourceCode?: string,
+    lastSyncHash?: string,
     output?: string,
-    encryptState?: encrypted,
+    encrypted?: encrypted,
     path?: string,
-    documentsVersion?: string
+    upload?: boolean,
+    uploadMode?: upload
 };
+
+export type documentsT = {
+    version: string
+}
+
 
 
 export type serverOperationT = (sdsConn: SDSConnection, param: any[]) => Promise<any[]>;
@@ -186,12 +211,13 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 
-export async function getDocumentsVersion(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
+export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
+    return new Promise<documentsT[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PartnerNet.getVersionNo", []).then((value) => {
             let docVersion = value[0];
-            let script: scriptT = {name: 'VersionNo', documentsVersion: docVersion};
-            resolve([script]);
+            let doc: documentsT = {version: docVersion};
+            console.log('getDocumentsVersion: ' + doc.version);
+            resolve([doc]);
         }).catch((reason) => {
             reject("getDocumentsVersion failed: " + reason);
         });
@@ -215,6 +241,12 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
     });
 }
 
+
+/**
+ * Create script-type with name and sourceCode from file.
+ * 
+ * @param file Scriptname, full path.
+ */
 export function getScript(file: string): scriptT | string {
     let s: scriptT;
     if(file && '.js' === path.extname(file)) {
@@ -233,6 +265,13 @@ export function getScript(file: string): scriptT | string {
 }
 
 
+
+/**
+ * Return a list of all names of all JavaScript files in the given folder.
+ * 
+ * @param _path Foder
+ * @param nameprefix 
+ */
 export async function getScriptsFromFolder(_path: string, nameprefix?: string): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
     
@@ -271,8 +310,13 @@ export async function getScriptsFromFolder(_path: string, nameprefix?: string): 
 
 
 
-// params: array containing all scripts to upload
-// return: array containing all uploaded scripts, should be equal to params
+/**
+ * Upload all scripts in given list.
+ * 
+ * @return Array containing all uploaded scripts, should be equal to params.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to upload.
+ */
 export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
@@ -294,8 +338,14 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
 }
 
 
-// params: array containing all scripts to download
-// return: array containing all downloaded scripts, including the source-code
+
+/**
+ * Download all scripts from server.
+ * 
+ * @return Array containing all downloaded scripts, including the source-code.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to download.
+ */
 export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
@@ -314,8 +364,13 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[
     });
 }
 
-// params: array containing all scripts to execute
-// return: array containing all executed scripts, including the output
+/**
+ * Execute all scripts in given list on server.
+ * 
+ * @return Array containing all executed scripts, including the output.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to execute.
+ */
 export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
@@ -351,27 +406,39 @@ function ensureNoBOM(sourceCode: string): string {
 }
 
 
-function intellisenseHelper(sourceCode: string): string {
+function intellisenseDownload(sourceCode: string): string {
     let lines = sourceCode.split('\n');
     if(lines.length > 1) {
         
-        // toggle comment first line
-        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
-            lines[0] = '// ' + lines[0];
-        } else if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
+        // uncomment first line
+        if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
             lines[0] = lines[0].replace('// ', '');
         }
 
-        // toggle comment second line
-        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
-            lines[1] = '// ' + lines[1];
-        } else if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
+        // uncomment second line
+        if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
             lines[1] = lines[1].replace('// ', '');
         }
     }
     return lines.join('\n');
 }
 
+function intellisenseUpload(sourceCode: string): string {
+    let lines = sourceCode.split('\n');
+    if(lines.length > 1) {
+        
+        // comment first line
+        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
+            lines[0] = '// ' + lines[0];
+        }
+
+        // comment second line
+        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
+            lines[1] = '// ' + lines[1];
+        }
+    }
+    return lines.join('\n');
+}
 
 
 
@@ -384,7 +451,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
             } else if(!retval[0]) {
                 reject('could not find ' + script.name + ' on server');
             } else {
-                let scriptSource = intellisenseHelper(retval[0]);
+                let scriptSource = intellisenseDownload(retval[0]);
                 let _encryptState = retval[1];
 
                 let scriptPath;
@@ -397,11 +464,14 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
                 writeFile(scriptSource, scriptPath, true).then(() => {
                     if(_encryptState === 'true') {
-                        script.encryptState = encrypted.true;
+                        script.encrypted = encrypted.true;
                     } else if(_encryptState === 'decrypted') {
-                        script.encryptState = encrypted.decrypted;
+                        script.encrypted = encrypted.decrypted;
                     } else {
-                        script.encryptState = encrypted.false;
+                        script.encrypted = encrypted.false;
+                    }
+                    if(script.uploadMode !== upload.force) {
+                        script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
                     }
                     resolve([script]);
                 }).catch((reason) => {
@@ -414,6 +484,40 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
     });
 }
 
+/**
+ * If the given script can be uploaded, an empty list is returned.
+ * If not, a script containing the server source code is returned.
+ * Both cases are resolved. Reject only in case of error.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+export async function checkForUpload(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let script: scriptT = params[0];
+        if(script.uploadMode === upload.force) {
+            console.log('checkForUpload: force upload');
+            resolve([]);
+        } else {
+            sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+                let scriptSource = intellisenseDownload(value[0]);
+                let serverScript = script;
+                serverScript.sourceCode = scriptSource;
+                let sourceCode: string = serverScript.sourceCode? serverScript.sourceCode : '';
+                serverScript.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest('hex');
+                if(script.lastSyncHash === serverScript.lastSyncHash) {
+                    console.log('checkForUpload: no changes on server');
+                    resolve([]);
+                } else {
+                    console.log('checkForUpload: script changed on server');
+                    resolve([serverScript]);
+                }
+            }).catch((reason) => {
+                reject(reason);
+            });
+        }
+    });
+}
 
 
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
@@ -421,15 +525,18 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         let script: scriptT = params[0];
         if(script.sourceCode) {
 
-            let iSourceCode = intellisenseHelper(script.sourceCode);
+            let iSourceCode = intellisenseUpload(script.sourceCode);
             let sourceCode = ensureNoBOM(iSourceCode);
             let paramScript = [script.name, sourceCode];
-            if(script.encryptState === encrypted.true) {
+            if(script.encrypted === encrypted.true) {
                 paramScript.push('true');
-            } else if(script.encryptState === encrypted.decrypted) {
+            } else if(script.encrypted === encrypted.decrypted) {
                 paramScript.push('decrypted');
             } else {
                 paramScript.push('false');
+            }
+            if(script.uploadMode !== upload.force) {
+                script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
             }
 
             sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
