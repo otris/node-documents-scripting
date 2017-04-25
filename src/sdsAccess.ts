@@ -513,7 +513,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 paramScript.push('true');
             } else if(script.encrypted === encrypted.decrypted) {
                 paramScript.push('decrypted');
-            } else {
+            } else if(script.encrypted === encrypted.false) {
                 paramScript.push('false');
             }
 

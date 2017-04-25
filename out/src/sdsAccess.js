@@ -468,7 +468,7 @@ function uploadScript(sdsConnection, params) {
                 else if (script.encrypted === encrypted.decrypted) {
                     paramScript.push('decrypted');
                 }
-                else {
+                else if (script.encrypted === encrypted.false) {
                     paramScript.push('false');
                 }
                 sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
