@@ -43,7 +43,7 @@ export type scriptT = {
     output?: string,
     encrypted?: encrypted,
     path?: string,
-    overwrite?: boolean
+    forceUpload?: boolean
 };
 
 export type documentsT = {
@@ -451,7 +451,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     } else {
                         script.encrypted = encrypted.false;
                     }
-                    if(!script.overwrite) {
+                    if(!script.forceUpload) {
                         script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
                     }
                     resolve([script]);
@@ -476,7 +476,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 export async function checkForUpload(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let script: scriptT = params[0];
-        if(script.overwrite) {
+        if(script.forceUpload) {
             console.log('checkForUpload: overwrite');
             resolve([]);
         } else {
@@ -518,7 +518,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             }
 
             sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                if(!script.overwrite) {
+                if(!script.forceUpload) {
                     script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
                 }
                 console.log('uploaded: ', script.name);
