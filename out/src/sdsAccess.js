@@ -400,7 +400,7 @@ function downloadScript(sdsConnection, params) {
                         else {
                             script.encrypted = encrypted.false;
                         }
-                        if (!script.overwrite) {
+                        if (script.conflictMode) {
                             script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
                         }
                         resolve([script]);
@@ -427,11 +427,7 @@ function checkForUpload(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let script = params[0];
-            if (script.overwrite) {
-                console.log('checkForUpload: overwrite');
-                resolve([]);
-            }
-            else {
+            if (script.conflictMode) {
                 sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                     let scriptSource = intellisenseDownload(value[0]);
                     let serverScript = script;
@@ -449,6 +445,10 @@ function checkForUpload(sdsConnection, params) {
                 }).catch((reason) => {
                     reject(reason);
                 });
+            }
+            else {
+                console.log('checkForUpload: overwrite');
+                resolve([]);
             }
         });
     });
@@ -472,7 +472,7 @@ function uploadScript(sdsConnection, params) {
                     paramScript.push('false');
                 }
                 sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                    if (!script.overwrite) {
+                    if (script.conflictMode) {
                         script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
                     }
                     console.log('uploaded: ', script.name);

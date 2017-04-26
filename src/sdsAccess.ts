@@ -43,7 +43,7 @@ export type scriptT = {
     output?: string,
     encrypted?: encrypted,
     path?: string,
-    forceUpload?: boolean
+    conflictMode?: boolean
 };
 
 export type documentsT = {
@@ -451,7 +451,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     } else {
                         script.encrypted = encrypted.false;
                     }
-                    if(!script.forceUpload) {
+                    if(script.conflictMode) {
                         script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
                     }
                     resolve([script]);
@@ -476,10 +476,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 export async function checkForUpload(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let script: scriptT = params[0];
-        if(script.forceUpload) {
-            console.log('checkForUpload: overwrite');
-            resolve([]);
-        } else {
+        if(script.conflictMode) {
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                 let scriptSource = intellisenseDownload(value[0]);
                 let serverScript = script;
@@ -496,6 +493,9 @@ export async function checkForUpload(sdsConnection: SDSConnection, params: scrip
             }).catch((reason) => {
                 reject(reason);
             });
+        } else {
+            console.log('checkForUpload: overwrite');
+            resolve([]);
         }
     });
 }
@@ -518,7 +518,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             }
 
             sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                if(!script.forceUpload) {
+                if(script.conflictMode) {
                     script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
                 }
                 console.log('uploaded: ', script.name);
