@@ -446,7 +446,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
             } else if(!retval[0]) {
                 reject('could not find ' + script.name + ' on server');
             } else {
-                let scriptSource = intellisenseDownload(retval[0]);
+                let scriptSource = retval[0]; // intellisenseDownload(noBOM);
                 let _encryptState = retval[1];
 
                 let scriptPath;
@@ -487,28 +487,28 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
  * @param sdsConnection 
  * @param params 
  */
-export async function checkForUpload(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let script: scriptT = params[0];
-        if(script.conflictMode) {
+        if(script.conflictMode && script.lastSyncHash) {
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
-                let scriptSource = intellisenseDownload(value[0]);
-                let serverScript = script;
-                serverScript.sourceCode = scriptSource;
-                let sourceCode: string = serverScript.sourceCode? serverScript.sourceCode : '';
-                serverScript.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest('hex');
+                let serverSource: string = value[0]; // intellisenseDownload(value[0]);
+                let serverScript:scriptT = {name: script.name};
+                serverScript.sourceCode = serverSource;
+                serverScript.lastSyncHash = crypto.createHash('md5').update(serverSource).digest('hex');
                 if(script.lastSyncHash === serverScript.lastSyncHash) {
-                    console.log('checkForUpload: no changes on server');
+                    console.log('checkForConflict: no changes on server');
                     resolve([]);
                 } else {
-                    console.log('checkForUpload: script changed on server');
+                    console.log('checkForConflict: script changed on server');
+                    serverScript.conflict = true;
                     resolve([serverScript]);
                 }
             }).catch((reason) => {
                 reject(reason);
             });
         } else {
-            console.log('checkForUpload: overwrite');
+            console.log('checkForConflict: conflictMode off or no lastSyncHash');
             resolve([]);
         }
     });
@@ -520,23 +520,39 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         let script: scriptT = params[0];
         if(script.sourceCode) {
 
-            let iSourceCode = intellisenseUpload(script.sourceCode);
-            let sourceCode = ensureNoBOM(iSourceCode);
-            let paramScript = [script.name, sourceCode];
-            if(script.encrypted === encrypted.true) {
-                paramScript.push('true');
-            } else if(script.encrypted === encrypted.decrypted) {
-                paramScript.push('decrypted');
-            } else if(script.encrypted === encrypted.false) {
-                paramScript.push('false');
-            }
+            // call checkForConflict WITH BOM
+            let bomSourceCode:string = ensureBOM(script.sourceCode); // intellisenseUpload(script.sourceCode);
+            script.sourceCode = bomSourceCode;
+            checkForConflict(sdsConnection, [script]).then((value) => {
 
-            sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                if(script.conflictMode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
+                if(0 === value.length) {
+
+                    // Upload script WITHOUT BOM
+                    // todo: only for old servers, recent versions remove BOM
+                    let noBomSourceCode = ensureNoBOM(bomSourceCode);
+
+                    // create parameter for uploadScript call
+                    let paramScript = [script.name, noBomSourceCode];
+                    if(script.encrypted === encrypted.true) {
+                        paramScript.push('true');
+                    } else if(script.encrypted === encrypted.decrypted) {
+                        paramScript.push('decrypted');
+                    } else if(script.encrypted === encrypted.false) {
+                        paramScript.push('false');
+                    }
+
+                    return sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                        if(script.conflictMode) {
+                            // create hash with BOM, because server returns the source-code always with BOM
+                            // todo: source-code should be uploaded with BOM
+                            script.lastSyncHash = crypto.createHash('md5').update(bomSourceCode).digest("hex");
+                        }
+                        console.log('uploaded: ', script.name);
+                        resolve([script]);
+                    });
+                } else {
+                    resolve(value);
                 }
-                console.log('uploaded: ', script.name);
-                resolve([script]);
             }).catch((reason) => {
                 reject(reason);
             });
