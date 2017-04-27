@@ -257,19 +257,30 @@ function uploadAll(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let scripts = [];
-            // reduce calls _uploadScript for every name in scriptNames,
-            // in doing so every call of _uploadScript is started after
-            // the previous call is finished
-            return reduce(params, function (numscripts, _script) {
-                return uploadScript(sdsConnection, [_script]).then(() => {
-                    // this section is executed after every single _uploadScript call
-                    scripts.push(_script);
-                    return numscripts + 1;
-                });
-            }, 0).then((numscripts) => {
-                // this section is exectuted once after all _uploadScript calls are finished
+            if (0 === params.length) {
                 resolve(scripts);
-            });
+            }
+            else {
+                // reduce calls _uploadScript for every name in scriptNames,
+                // in doing so every call of _uploadScript is started after
+                // the previous call is finished
+                return reduce(params, function (numscripts, _script) {
+                    return uploadScript(sdsConnection, [_script]).then((value) => {
+                        // this section is executed after every single _uploadScript call
+                        if (0 === value.length) {
+                            scripts.push(_script);
+                        }
+                        else {
+                            let conflictScript = value[0];
+                            scripts.push(conflictScript);
+                        }
+                        return numscripts + 1;
+                    });
+                }, 0).then((numscripts) => {
+                    // this section is exectuted once after all _uploadScript calls are finished
+                    resolve(scripts);
+                });
+            }
         });
     });
 }
@@ -286,16 +297,21 @@ function dwonloadAll(sdsConnection, params) {
         return new Promise((resolve, reject) => {
             let returnScripts = [];
             let scripts = params;
-            // see description of reduce in uploadAll
-            return reduce(scripts, function (numScripts, script) {
-                return downloadScript(sdsConnection, [script]).then((retval) => {
-                    let currentScript = retval[0];
-                    returnScripts.push(currentScript);
-                    return numScripts + 1;
-                });
-            }, 0).then((numScripts) => {
+            if (0 === params.length) {
                 resolve(returnScripts);
-            });
+            }
+            else {
+                // see description of reduce in uploadAll
+                return reduce(scripts, function (numScripts, script) {
+                    return downloadScript(sdsConnection, [script]).then((retval) => {
+                        let currentScript = retval[0];
+                        returnScripts.push(currentScript);
+                        return numScripts + 1;
+                    });
+                }, 0).then((numScripts) => {
+                    resolve(returnScripts);
+                });
+            }
         });
     });
 }
@@ -380,7 +396,7 @@ function downloadScript(sdsConnection, params) {
                     reject('could not find ' + script.name + ' on server');
                 }
                 else {
-                    let scriptSource = intellisenseDownload(retval[0]);
+                    let scriptSource = retval[0]; // intellisenseDownload(noBOM);
                     let _encryptState = retval[1];
                     let scriptPath;
                     if (script.rename) {
@@ -423,23 +439,23 @@ exports.downloadScript = downloadScript;
  * @param sdsConnection
  * @param params
  */
-function checkForUpload(sdsConnection, params) {
+function checkForConflict(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let script = params[0];
-            if (script.conflictMode) {
+            if (script.conflictMode && script.lastSyncHash) {
                 sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
-                    let scriptSource = intellisenseDownload(value[0]);
-                    let serverScript = script;
-                    serverScript.sourceCode = scriptSource;
-                    let sourceCode = serverScript.sourceCode ? serverScript.sourceCode : '';
-                    serverScript.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest('hex');
+                    let serverSource = value[0]; // intellisenseDownload(value[0]);
+                    let serverScript = { name: script.name };
+                    serverScript.sourceCode = serverSource;
+                    serverScript.lastSyncHash = crypto.createHash('md5').update(serverSource).digest('hex');
                     if (script.lastSyncHash === serverScript.lastSyncHash) {
-                        console.log('checkForUpload: no changes on server');
+                        console.log('checkForConflict: no changes on server');
                         resolve([]);
                     }
                     else {
-                        console.log('checkForUpload: script changed on server');
+                        console.log('checkForConflict: script changed on server');
+                        serverScript.conflict = true;
                         resolve([serverScript]);
                     }
                 }).catch((reason) => {
@@ -447,36 +463,50 @@ function checkForUpload(sdsConnection, params) {
                 });
             }
             else {
-                console.log('checkForUpload: overwrite');
+                console.log('checkForConflict: conflictMode off or no lastSyncHash');
                 resolve([]);
             }
         });
     });
 }
-exports.checkForUpload = checkForUpload;
+exports.checkForConflict = checkForConflict;
 function uploadScript(sdsConnection, params) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => {
             let script = params[0];
             if (script.sourceCode) {
-                let iSourceCode = intellisenseUpload(script.sourceCode);
-                let sourceCode = ensureNoBOM(iSourceCode);
-                let paramScript = [script.name, sourceCode];
-                if (script.encrypted === encrypted.true) {
-                    paramScript.push('true');
-                }
-                else if (script.encrypted === encrypted.decrypted) {
-                    paramScript.push('decrypted');
-                }
-                else if (script.encrypted === encrypted.false) {
-                    paramScript.push('false');
-                }
-                sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                    if (script.conflictMode) {
-                        script.lastSyncHash = crypto.createHash('md5').update(sourceCode).digest("hex");
+                // call checkForConflict WITH BOM
+                let bomSourceCode = ensureBOM(script.sourceCode); // intellisenseUpload(script.sourceCode);
+                script.sourceCode = bomSourceCode;
+                checkForConflict(sdsConnection, [script]).then((value) => {
+                    if (0 === value.length) {
+                        // Upload script WITHOUT BOM
+                        // todo: only for old servers, recent versions remove BOM
+                        let noBomSourceCode = ensureNoBOM(bomSourceCode);
+                        // create parameter for uploadScript call
+                        let paramScript = [script.name, noBomSourceCode];
+                        if (script.encrypted === encrypted.true) {
+                            paramScript.push('true');
+                        }
+                        else if (script.encrypted === encrypted.decrypted) {
+                            paramScript.push('decrypted');
+                        }
+                        else if (script.encrypted === encrypted.false) {
+                            paramScript.push('false');
+                        }
+                        return sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                            if (script.conflictMode) {
+                                // create hash with BOM, because server returns the source-code always with BOM
+                                // todo: source-code should be uploaded with BOM
+                                script.lastSyncHash = crypto.createHash('md5').update(bomSourceCode).digest("hex");
+                            }
+                            console.log('uploaded: ', script.name);
+                            resolve([script]);
+                        });
                     }
-                    console.log('uploaded: ', script.name);
-                    resolve([script]);
+                    else {
+                        resolve(value);
+                    }
                 }).catch((reason) => {
                     reject(reason);
                 });
