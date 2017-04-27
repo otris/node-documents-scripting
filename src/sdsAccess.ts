@@ -302,20 +302,29 @@ export async function getScriptsFromFolder(_path: string, nameprefix?: string): 
 export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
-        
-        // reduce calls _uploadScript for every name in scriptNames,
-        // in doing so every call of _uploadScript is started after
-        // the previous call is finished
+
+        if(0 === params.length) {
+            resolve(scripts);
+        } else {
+            // reduce calls _uploadScript for every name in scriptNames,
+            // in doing so every call of _uploadScript is started after
+            // the previous call is finished
             return reduce(params, function(numscripts, _script) {
-                return uploadScript(sdsConnection, [_script]).then(() => {
+                return uploadScript(sdsConnection, [_script]).then((value) => {
                     // this section is executed after every single _uploadScript call
-                    scripts.push(_script);
+                    if(0 === value.length) {
+                        scripts.push(_script);
+                    } else {
+                        let conflictScript = value[0];
+                        scripts.push(conflictScript);
+                    }
                     return numscripts + 1;
                 });
             }, 0).then((numscripts) => {
                 // this section is exectuted once after all _uploadScript calls are finished
                 resolve(scripts);
-        });
+            });
+        }
     });
 }
 
@@ -333,16 +342,20 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[
         let returnScripts: scriptT[] = [];
         let scripts: scriptT[] = params;
 
-        // see description of reduce in uploadAll
-        return reduce(scripts, function(numScripts, script) {
-            return downloadScript(sdsConnection, [script]).then((retval) => {
-                let currentScript: scriptT = retval[0];
-                returnScripts.push(currentScript);
-                return numScripts + 1;
-            });
-        }, 0).then((numScripts) => {
+        if(0 === params.length) {
             resolve(returnScripts);
-        });
+        } else {
+            // see description of reduce in uploadAll
+            return reduce(scripts, function(numScripts, script) {
+                return downloadScript(sdsConnection, [script]).then((retval) => {
+                    let currentScript: scriptT = retval[0];
+                    returnScripts.push(currentScript);
+                    return numScripts + 1;
+                });
+            }, 0).then((numScripts) => {
+                resolve(returnScripts);
+            });
+        }
     });
 }
 
