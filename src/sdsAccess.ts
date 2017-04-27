@@ -43,7 +43,8 @@ export type scriptT = {
     output?: string,
     encrypted?: encrypted,
     path?: string,
-    conflictMode?: boolean
+    conflictMode?: boolean,
+    conflict?: boolean
 };
 
 export type documentsT = {
