@@ -39,6 +39,7 @@ export type scriptT = {
     name: string,
     rename?: string,
     sourceCode?: string,
+    serverCode?: string,
     lastSyncHash?: string,
     output?: string,
     encrypted?: encrypted,
@@ -375,7 +376,7 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
             return runScript(sdsConnection, [_script]).then((value) => {
                 let script: scriptT = value[0];
                 scripts.push(script);
-                return numScripts;
+                return numScripts + 1;
             });
         }, 0).then((numScripts) => {
             resolve(scripts);
@@ -439,43 +440,48 @@ function intellisenseUpload(sourceCode: string): string {
 
 export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        let script: scriptT = params[0];
-        sdsConnection.callClassOperation("PortalScript.downloadScript", [script.name]).then((retval) => {
-            if(!script.path) {
-                reject('path missing');
-            } else if(!retval[0]) {
-                reject('could not find ' + script.name + ' on server');
-            } else {
-                let scriptSource = retval[0]; // intellisenseDownload(noBOM);
-                let _encryptState = retval[1];
-
-                let scriptPath;
-                if(script.rename) {
-                    // rename script on download, only used for compare by now
-                    scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
+        if(0 === params.length) {
+            resolve([]);
+        } else {
+            
+            let script: scriptT = params[0];
+            sdsConnection.callClassOperation("PortalScript.downloadScript", [script.name]).then((retval) => {
+                if(!script.path) {
+                    reject('path missing');
+                } else if(!retval[0]) {
+                    reject('could not find ' + script.name + ' on server');
                 } else {
-                    scriptPath = path.join(script.path? script.path: '', script.name + ".js");
-                }
+                    let scriptSource = retval[0]; // intellisenseDownload(noBOM);
+                    let _encryptState = retval[1];
 
-                writeFile(scriptSource, scriptPath, true).then(() => {
-                    if(_encryptState === 'true') {
-                        script.encrypted = encrypted.true;
-                    } else if(_encryptState === 'decrypted') {
-                        script.encrypted = encrypted.decrypted;
+                    let scriptPath;
+                    if(script.rename) {
+                        // rename script on download, only used for compare by now
+                        scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                     } else {
-                        script.encrypted = encrypted.false;
+                        scriptPath = path.join(script.path? script.path: '', script.name + ".js");
                     }
-                    if(script.conflictMode) {
-                        script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
-                    }
-                    resolve([script]);
-                }).catch((reason) => {
-                    reject(reason);
-                });
-            }
-        }).catch((reason) => {
-            reject(reason);
-        });
+
+                    writeFile(scriptSource, scriptPath, true).then(() => {
+                        if(_encryptState === 'true') {
+                            script.encrypted = encrypted.true;
+                        } else if(_encryptState === 'decrypted') {
+                            script.encrypted = encrypted.decrypted;
+                        } else {
+                            script.encrypted = encrypted.false;
+                        }
+                        if(script.conflictMode) {
+                            script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
+                        }
+                        resolve([script]);
+                    }).catch((reason) => {
+                        reject(reason);
+                    });
+                }
+            }).catch((reason) => {
+                reject(reason);
+            });
+        }
     });
 }
 
@@ -489,27 +495,31 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
  */
 export async function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        let script: scriptT = params[0];
-        if(script.conflictMode && script.lastSyncHash) {
-            sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
-                let serverSource: string = value[0]; // intellisenseDownload(value[0]);
-                let serverScript:scriptT = {name: script.name};
-                serverScript.sourceCode = serverSource;
-                serverScript.lastSyncHash = crypto.createHash('md5').update(serverSource).digest('hex');
-                if(script.lastSyncHash === serverScript.lastSyncHash) {
-                    console.log('checkForConflict: no changes on server');
-                    resolve([]);
-                } else {
-                    console.log('checkForConflict: script changed on server');
-                    serverScript.conflict = true;
-                    resolve([serverScript]);
-                }
-            }).catch((reason) => {
-                reject(reason);
-            });
-        } else {
-            console.log('checkForConflict: conflictMode off or no lastSyncHash');
+        if(0 === params.length) {
             resolve([]);
+        } else {
+
+            let script: scriptT = params[0];
+            if(script.conflictMode && script.lastSyncHash) {
+                sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+                    let serverSource: string = value[0]; // intellisenseDownload(value[0]);
+                    script.serverCode = serverSource;
+                    let serverHash = crypto.createHash('md5').update(serverSource).digest('hex');
+                    if(script.lastSyncHash === serverHash) {
+                        console.log('checkForConflict: no changes on server');
+                        resolve([]);
+                    } else {
+                        console.log('checkForConflict: script changed on server');
+                        script.conflict = true;
+                        resolve([script]);
+                    }
+                }).catch((reason) => {
+                    reject(reason);
+                });
+            } else {
+                console.log('checkForConflict: conflictMode off or no lastSyncHash');
+                resolve([]);
+            }
         }
     });
 }
@@ -517,64 +527,74 @@ export async function checkForConflict(sdsConnection: SDSConnection, params: scr
 
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        let script: scriptT = params[0];
-        if(script.sourceCode) {
+        if(0 === params.length) {
+            resolve([]);
+        } else {
+            
+            let script: scriptT = params[0];
+            if(script.sourceCode) {
 
-            // call checkForConflict WITH BOM
-            let bomSourceCode:string = ensureBOM(script.sourceCode); // intellisenseUpload(script.sourceCode);
-            script.sourceCode = bomSourceCode;
-            checkForConflict(sdsConnection, [script]).then((value) => {
+                // call checkForConflict WITH BOM
+                let bomSourceCode:string = ensureBOM(script.sourceCode); // intellisenseUpload(script.sourceCode);
+                script.sourceCode = bomSourceCode;
+                checkForConflict(sdsConnection, [script]).then((value) => {
 
-                if(0 === value.length) {
+                    if(0 === value.length) {
 
-                    // Upload script WITHOUT BOM
-                    // todo: only for old servers, recent versions remove BOM
-                    let noBomSourceCode = ensureNoBOM(bomSourceCode);
+                        // Upload script WITHOUT BOM
+                        // todo: only for old servers, recent versions remove BOM
+                        let noBomSourceCode = ensureNoBOM(bomSourceCode);
 
-                    // create parameter for uploadScript call
-                    let paramScript = [script.name, noBomSourceCode];
-                    if(script.encrypted === encrypted.true) {
-                        paramScript.push('true');
-                    } else if(script.encrypted === encrypted.decrypted) {
-                        paramScript.push('decrypted');
-                    } else if(script.encrypted === encrypted.false) {
-                        paramScript.push('false');
-                    }
-
-                    return sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
-                        if(script.conflictMode) {
-                            // create hash with BOM, because server returns the source-code always with BOM
-                            // todo: source-code should be uploaded with BOM
-                            script.lastSyncHash = crypto.createHash('md5').update(bomSourceCode).digest("hex");
+                        // create parameter for uploadScript call
+                        let paramScript = [script.name, noBomSourceCode];
+                        if(script.encrypted === encrypted.true) {
+                            paramScript.push('true');
+                        } else if(script.encrypted === encrypted.decrypted) {
+                            paramScript.push('decrypted');
+                        } else if(script.encrypted === encrypted.false) {
+                            paramScript.push('false');
                         }
-                        console.log('uploaded: ', script.name);
-                        resolve([script]);
-                    });
-                } else {
-                    resolve(value);
-                }
-            }).catch((reason) => {
-                reject(reason);
-            });
-        } else  {
-            reject('scriptname or sourcecode missing in uploadScript');
+
+                        return sdsConnection.callClassOperation("PortalScript.uploadScript", paramScript).then((value) => {
+                            if(script.conflictMode) {
+                                // create hash with BOM, because server returns the source-code always with BOM
+                                // todo: source-code should be uploaded with BOM
+                                script.lastSyncHash = crypto.createHash('md5').update(bomSourceCode).digest("hex");
+                            }
+                            console.log('uploaded: ', script.name);
+                            resolve([script]);
+                        });
+                    } else {
+                        resolve(value);
+                    }
+                }).catch((reason) => {
+                    reject(reason);
+                });
+            } else  {
+                reject('scriptname or sourcecode missing in uploadScript');
+            }
         }
     });
 }
 
 export async function runScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        let script: scriptT = params[0];
-        sdsConnection.callClassOperation("PortalScript.runScript", [script.name]).then((value) => {
-            if(!value || 0 === value.length) {
-                reject('could not find ' + params[0] + ' on server');
-            } else {
-                script.output = value.join(os.EOL);
-                resolve([script]);
-            }
-        }).catch((reason) => {
-            reject(reason);
-        });
+        if(0 === params.length) {
+            resolve([]);
+        } else {
+            
+            let script: scriptT = params[0];
+            sdsConnection.callClassOperation("PortalScript.runScript", [script.name]).then((value) => {
+                if(!value || 0 === value.length) {
+                    reject('could not find ' + params[0] + ' on server');
+                } else {
+                    script.output = value.join(os.EOL);
+                    resolve([script]);
+                }
+            }).catch((reason) => {
+                reject(reason);
+            });
+        }
     });
 }
 
