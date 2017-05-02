@@ -22,7 +22,7 @@ async function uploadAndRunAll(loginData: config.LoginData, folder: string, pref
                     return sdsAccess.sdsSession(loginData, _runscripts, sdsAccess.runAll).then((retval) => {
                         for(let i=0; i<retval.length; i++) {
                             scripts.push(retval[i]);
-                            console.log("script " + i + ":" + os.EOL + retval[i].sourceCode);
+                            console.log("script " + i + ":" + os.EOL + retval[i].output);
                         }
                         resolve(scripts);
                     });
