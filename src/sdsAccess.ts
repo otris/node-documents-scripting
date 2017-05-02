@@ -37,15 +37,42 @@ export enum encrypted {
 
 export type scriptT = {
     name: string,
+    /**
+     * If this value is set, the script is renamed after download.
+     * For now only used for 'compare-script'.
+     */
     rename?: string,
+    path?: string,
     sourceCode?: string,
     serverCode?: string,
-    lastSyncHash?: string,
     output?: string,
     encrypted?: encrypted,
-    path?: string,
+
+    /**
+     * If a script in conflict mode is uploaded, the hash value is used to
+     * check, if the script (the source code of the script) on server has
+     * changed since last up- or download.
+     * If the script in conlfict mode has been changed on server, it won't
+     * be uploaded, instead 'conflict' will be set to true.
+     */
     conflictMode?: boolean,
-    conflict?: boolean
+    /**
+     * Hash value of the source code at the time of last synchronisation,
+     * meaning at the time of last up- or download.
+     * This value is only set if script is in conflict mode.
+     */
+    lastSyncHash?: string,
+    /**
+     * conflict is set to true, if the user tried to upload a script, but
+     * the source code of the script on server has been changed since last
+     * up- or download.
+     */
+    conflict?: boolean,
+    /**
+     * forceUpload is set to true if conflict is true and the user decided
+     * to upload and overwrite the script on server anyway.
+     */
+    forceUpload?: boolean
 };
 
 export type documentsT = {
@@ -313,11 +340,9 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
             return reduce(params, function(numscripts, _script) {
                 return uploadScript(sdsConnection, [_script]).then((value) => {
                     // this section is executed after every single _uploadScript call
-                    if(0 === value.length) {
-                        scripts.push(_script);
-                    } else {
-                        let conflictScript = value[0];
-                        scripts.push(conflictScript);
+                    if(0 <= value.length) {
+                        let uscript = value[0];
+                        scripts.push(uscript);
                     }
                     return numscripts + 1;
                 });
@@ -500,7 +525,7 @@ export async function checkForConflict(sdsConnection: SDSConnection, params: scr
         } else {
 
             let script: scriptT = params[0];
-            if(script.conflictMode && script.lastSyncHash) {
+            if(script.conflictMode && !script.forceUpload && script.lastSyncHash) {
                 sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                     let serverSource: string = value[0]; // intellisenseDownload(value[0]);
                     script.serverCode = serverSource;

@@ -267,12 +267,9 @@ function uploadAll(sdsConnection, params) {
                 return reduce(params, function (numscripts, _script) {
                     return uploadScript(sdsConnection, [_script]).then((value) => {
                         // this section is executed after every single _uploadScript call
-                        if (0 === value.length) {
-                            scripts.push(_script);
-                        }
-                        else {
-                            let conflictScript = value[0];
-                            scripts.push(conflictScript);
+                        if (0 <= value.length) {
+                            let uscript = value[0];
+                            scripts.push(uscript);
                         }
                         return numscripts + 1;
                     });
@@ -452,7 +449,7 @@ function checkForConflict(sdsConnection, params) {
             }
             else {
                 let script = params[0];
-                if (script.conflictMode && script.lastSyncHash) {
+                if (script.conflictMode && !script.forceUpload && script.lastSyncHash) {
                     sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                         let serverSource = value[0]; // intellisenseDownload(value[0]);
                         script.serverCode = serverSource;
