@@ -36,6 +36,10 @@ export enum encrypted {
 
 
 export type scriptT = {
+    /**
+     * Name of the script without extension.
+     * A script is always a javascript file.
+     */
     name: string,
     /**
      * If this value is set, the script is renamed after download.
@@ -43,9 +47,18 @@ export type scriptT = {
      */
     rename?: string,
     path?: string,
+    /**
+     * Source code of the script.
+     */
     sourceCode?: string,
-    serverCode?: string,
+    /**
+     * Output of run script.
+     */
     output?: string,
+    /**
+     * Encryption state.
+     * See enum encrypted for more information.
+     */
     encrypted?: encrypted,
 
     /**
@@ -62,6 +75,11 @@ export type scriptT = {
      * This value is only set if script is in conflict mode.
      */
     lastSyncHash?: string,
+    /**
+     * Source code of the script on server.
+     * Only set, if code on server has been changed after last synchronisation.
+     */
+    serverCode?: string,
     /**
      * conflict is set to true, if the user tried to upload a script, but
      * the source code of the script on server has been changed since last
@@ -269,9 +287,11 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 /**
+ * Returns the current build version that is used with the given login data.
+ * This function is called in sdsSession.
  * 
- * @param sdsConnection 
- * @param params 
+ * @param sdsConnection Set by function sdsSession
+ * @param params empty
  */
 export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
     return new Promise<documentsT[]>((resolve, reject) => {
@@ -287,7 +307,12 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
 }
 
 
-
+/**
+ * Get names of all scripts on server.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
 export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PortalScript.getScriptNames", []).then((scriptNames) => {
@@ -308,7 +333,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 /**
- * Upload all scripts in given list.
+ * Upload all scripts from given list.
  * 
  * @return Array containing all uploaded scripts, should be equal to params.
  * @param sdsConnection 
@@ -344,7 +369,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
 
 
 /**
- * Download all scripts from server.
+ * Download all scripts from given list.
  * 
  * @return Array containing all downloaded scripts, including the source-code.
  * @param sdsConnection 
