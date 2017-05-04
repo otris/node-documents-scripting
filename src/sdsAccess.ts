@@ -75,6 +75,12 @@ export type scriptT = {
     forceUpload?: boolean
 };
 
+
+
+/**
+ * Used for information that are independend from scripts.
+ * For now only version is used.
+ */
 export type documentsT = {
     version: string
 }
@@ -84,27 +90,41 @@ export type documentsT = {
 export type serverOperationT = (sdsConn: SDSConnection, param: any[]) => Promise<any[]>;
 
 
+/**
+ * This function establishes a connection to the server, calls the given operation
+ * and closes the connection.
+ * The operations that can be called on server using this function are implemented
+ * below.
+ * 
+ * @param loginData 
+ * @param param input parameter of the operation
+ * @param serverOperation the operation to be called on server, should be one of the
+ * functions that are implemented below
+ */
 export async function sdsSession(loginData: config.LoginData,
                                  param: any[],
                                  serverOperation: serverOperationT): Promise<any[]> {
 
     return new Promise<any[]>((resolve, reject) => {
         if(!loginData) {
-            reject('no login data');
+            reject('login data missing');
         }
 
 
+        // first try to get the login data
         loginData.ensureLoginData().then(() => {
-            let onConnect: boolean = false;
             console.log('ensureLoginData successful');
+
+            let onConnect: boolean = false;
 
             // create socket
             let sdsSocket = connect(loginData.port, loginData.server);
 
-            // implement callback functions for the socket
-            // actual function (serverOperation) is in callback function on-connect
+            // the callback functions for the socket are implemented below
+            // actual function (serverOperation) is executed in connect callback
 
-            // callback on-connect
+            // callback on connect
+            // function that is called on connect event
             sdsSocket.on('connect', () => {
                 onConnect = true;
                 console.log('callback socket.on(connect)');
@@ -135,7 +155,9 @@ export async function sdsSession(loginData: config.LoginData,
                 });
             });
 
-            // callback on-close
+
+            // callback on close
+            // function that is called on close event
             sdsSocket.on('close', (hadError: boolean) => {
                 console.log('callback socket.on(close)');
                 if (hadError) {
@@ -145,7 +167,8 @@ export async function sdsSession(loginData: config.LoginData,
                 }
             });
 
-            // callback on-error
+            // callback on error
+            // function that is called on error event
             sdsSocket.on('error', (err: any) => {
                 console.log('callback socket.on(error)');
                 console.log(err);
@@ -171,6 +194,13 @@ export async function sdsSession(loginData: config.LoginData,
 }
 
 
+/**
+ * Connect to server.
+ * This function is called in function sdsSession before the operation is called.
+ * 
+ * @param loginData 
+ * @param sdsSocket 
+ */
 async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<SDSConnection> {
     return new Promise<SDSConnection>((resolve, reject) => {
         let sdsConnection = new SDSConnection(sdsSocket);
@@ -208,6 +238,13 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
 }
 
 
+/**
+ * Close the connection to the server.
+ * This function is called in function sdsSession after the operation
+ * has been called.
+ * 
+ * @param sdsConnection 
+ */
 async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         sdsConnection.disconnect().then(() => {
@@ -221,6 +258,21 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 
+
+
+/**
+ * The following functions are the operations that can be called
+ * on server using the function sdsSession.
+ */
+
+
+
+
+/**
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
 export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
     return new Promise<documentsT[]>((resolve, reject) => {
         sdsConnection.callClassOperation("PartnerNet.getVersionNo", []).then((value) => {
@@ -250,71 +302,6 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
         });
     });
 }
-
-
-/**
- * Create script-type with name and sourceCode from file.
- * 
- * @param file Scriptname, full path.
- */
-export function getScript(file: string): scriptT | string {
-    let s: scriptT;
-    if(file && '.js' === path.extname(file)) {
-        try {
-            // todo check with fs.stat because if file looks relative readFileSync
-            // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
-            let sc = fs.readFileSync(file, 'utf8');
-            let _name = path.basename(file, '.js');
-            return {name: _name, sourceCode: sc};
-        } catch(err) {
-            return err.message;
-        }
-    } else {
-        return 'only javascript files allowed';
-    }
-}
-
-
-
-/**
- * Return a list of all names of all JavaScript files in the given folder.
- * 
- * @param _path Foder
- * @param nameprefix 
- */
-export async function getScriptsFromFolder(_path: string, nameprefix?: string): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-    
-        let scripts : scriptT[] = [];
-
-        fs.readdir(_path, function (err, files) {
-            if (err) {
-                reject(err.message);
-            } else if (!files) {
-                reject('unexpexted error in readdir: files is empty');
-            } else {
-
-                files.map(function (file) {
-                    return path.join(_path, file);
-                }).filter(function (file) {
-                    return fs.statSync(file).isFile();
-                }).forEach(function (file) {
-                    let basename = path.basename(file);
-                    if('.js' === path.extname(file) && (!nameprefix || basename.startsWith(nameprefix))) {
-                        let s = getScript(file);
-                        if(typeof s !== 'string') {
-                            scripts.push(s);
-                        }
-                        // else ...reject(s)
-                    }
-                });
-
-                resolve(scripts);
-            }
-        });
-    });
-}
-
 
 
 
@@ -411,55 +398,6 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
 
 
 
-const NODEJS_UTF8_BOM = '\ufeff';
-// not used for now...
-// actually it's only required for DOCUMENTS 4 support,
-// in that case we shouldn't send UTF 8 without BOM
-function ensureBOM(sourceCode: string): string {
-    if(sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
-        return sourceCode;
-    } else {
-        return NODEJS_UTF8_BOM + sourceCode;
-    }
-}
-function ensureNoBOM(sourceCode: string): string {
-    return sourceCode.replace(/^\ufeff/, '');
-}
-
-
-function intellisenseDownload(sourceCode: string): string {
-    let lines = sourceCode.split('\n');
-    if(lines.length > 1) {
-        
-        // uncomment first line
-        if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
-            lines[0] = lines[0].replace('// ', '');
-        }
-
-        // uncomment second line
-        if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
-            lines[1] = lines[1].replace('// ', '');
-        }
-    }
-    return lines.join('\n');
-}
-
-function intellisenseUpload(sourceCode: string): string {
-    let lines = sourceCode.split('\n');
-    if(lines.length > 1) {
-        
-        // comment first line
-        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
-            lines[0] = '// ' + lines[0];
-        }
-
-        // comment second line
-        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
-            lines[1] = '// ' + lines[1];
-        }
-    }
-    return lines.join('\n');
-}
 
 
 
@@ -625,6 +563,23 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
 
 
 
+
+
+/**
+ * Some additional helper functions.
+ */
+
+
+
+
+
+
+/**
+ * 
+ * @param data 
+ * @param filename 
+ * @param allowSubFolder 
+ */
 export async function writeFile(data, filename, allowSubFolder = false): Promise<void> {
     console.log('writeFile');
 
@@ -664,3 +619,119 @@ export async function writeFile(data, filename, allowSubFolder = false): Promise
     });
 }
 
+
+/**
+ * Return a list of all names of all JavaScript files in the given folder.
+ * 
+ * @param _path Foder
+ * @param nameprefix 
+ */
+export async function getScriptsFromFolder(_path: string, nameprefix?: string): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+    
+        let scripts : scriptT[] = [];
+
+        fs.readdir(_path, function (err, files) {
+            if (err) {
+                reject(err.message);
+            } else if (!files) {
+                reject('unexpexted error in readdir: files is empty');
+            } else {
+
+                files.map(function (file) {
+                    return path.join(_path, file);
+                }).filter(function (file) {
+                    return fs.statSync(file).isFile();
+                }).forEach(function (file) {
+                    let basename = path.basename(file);
+                    if('.js' === path.extname(file) && (!nameprefix || basename.startsWith(nameprefix))) {
+                        let s = getScript(file);
+                        if(typeof s !== 'string') {
+                            scripts.push(s);
+                        }
+                        // else ...reject(s)
+                    }
+                });
+
+                resolve(scripts);
+            }
+        });
+    });
+}
+
+
+
+
+
+/**
+ * Create script-type with name and sourceCode from file.
+ * 
+ * @param file Scriptname, full path.
+ */
+export function getScript(file: string): scriptT | string {
+    let s: scriptT;
+    if(file && '.js' === path.extname(file)) {
+        try {
+            // todo check with fs.stat because if file looks relative readFileSync
+            // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
+            let sc = fs.readFileSync(file, 'utf8');
+            let _name = path.basename(file, '.js');
+            return {name: _name, sourceCode: sc};
+        } catch(err) {
+            return err.message;
+        }
+    } else {
+        return 'only javascript files allowed';
+    }
+}
+
+
+const NODEJS_UTF8_BOM = '\ufeff';
+// not used for now...
+// actually it's only required for DOCUMENTS 4 support,
+// in that case we shouldn't send UTF 8 without BOM
+function ensureBOM(sourceCode: string): string {
+    if(sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
+        return sourceCode;
+    } else {
+        return NODEJS_UTF8_BOM + sourceCode;
+    }
+}
+function ensureNoBOM(sourceCode: string): string {
+    return sourceCode.replace(/^\ufeff/, '');
+}
+
+
+function intellisenseDownload(sourceCode: string): string {
+    let lines = sourceCode.split('\n');
+    if(lines.length > 1) {
+        
+        // uncomment first line
+        if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
+            lines[0] = lines[0].replace('// ', '');
+        }
+
+        // uncomment second line
+        if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
+            lines[1] = lines[1].replace('// ', '');
+        }
+    }
+    return lines.join('\n');
+}
+
+function intellisenseUpload(sourceCode: string): string {
+    let lines = sourceCode.split('\n');
+    if(lines.length > 1) {
+        
+        // comment first line
+        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
+            lines[0] = '// ' + lines[0];
+        }
+
+        // comment second line
+        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
+            lines[1] = '// ' + lines[1];
+        }
+    }
+    return lines.join('\n');
+}
