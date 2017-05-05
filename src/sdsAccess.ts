@@ -268,7 +268,7 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
         sdsConnection.disconnect().then(() => {
             resolve();
         }).catch((reason) => {
-            reject("closeConnection failed: " + reason);
+            reject('closeConnection failed: ' + reason);
         });
     });
 }
@@ -295,13 +295,13 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
  */
 export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
     return new Promise<documentsT[]>((resolve, reject) => {
-        sdsConnection.callClassOperation("PartnerNet.getVersionNo", []).then((value) => {
+        sdsConnection.callClassOperation('PartnerNet.getVersionNo', []).then((value) => {
             let docVersion = value[0];
             let doc: documentsT = {version: docVersion};
             console.log('getDocumentsVersion: ' + doc.version);
             resolve([doc]);
         }).catch((reason) => {
-            reject("getDocumentsVersion failed: " + reason);
+            reject('getDocumentsVersion failed: ' + reason);
         });
     });
 }
@@ -315,7 +315,7 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
  */
 export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        sdsConnection.callClassOperation("PortalScript.getScriptNames", []).then((scriptNames) => {
+        sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: scriptT[] = [];
             scriptNames.forEach(function(scriptname) {
                 let script: scriptT = {name: scriptname};
@@ -323,12 +323,33 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
             });
             resolve(scripts);
         }).catch((reason) => {
-            reject("getScriptNamesFromServer failed: " + reason);
+            reject('getScriptNamesFromServer failed: ' + reason);
         });
     });
 }
 
 
+
+export async function getScriptParameters(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('PortalScript.*generic', ['getScriptParameters2', '']).then((param) => {
+            resolve([]);
+        }).catch((reason) => {
+            reject('getScriptParameters failed: ' + reason);
+        });
+    });
+}
+
+
+export async function getSystemUser(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('Systemuser.get', ['test']).then((param) => {
+            resolve([]);
+        }).catch((reason) => {
+            reject('getSystemUser failed: ' + reason);
+        });
+    });
+}
 
 
 
@@ -425,7 +446,12 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
 
 
 
-
+/**
+ * Download script.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
 export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
@@ -433,7 +459,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
         } else {
             
             let script: scriptT = params[0];
-            sdsConnection.callClassOperation("PortalScript.downloadScript", [script.name]).then((retval) => {
+            sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((retval) => {
                 if(!script.path) {
                     reject('path missing');
                 } else if(!retval[0]) {
@@ -459,7 +485,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                             script.encrypted = encrypted.false;
                         }
                         if(script.conflictMode) {
-                            script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest("hex");
+                            script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest('hex');
                         }
                         resolve([script]);
                     }).catch((reason) => {
@@ -512,7 +538,12 @@ export async function checkForConflict(sdsConnection: SDSConnection, params: scr
     });
 }
 
-
+/**
+ * Upload Script.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
@@ -565,6 +596,12 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
     });
 }
 
+/**
+ * Run script.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
 export async function runScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
@@ -572,7 +609,7 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
         } else {
             
             let script: scriptT = params[0];
-            sdsConnection.callClassOperation("PortalScript.runScript", [script.name]).then((value) => {
+            sdsConnection.callClassOperation('PortalScript.runScript', [script.name]).then((value) => {
                 if(!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 } else {
@@ -732,12 +769,12 @@ function intellisenseDownload(sourceCode: string): string {
     if(lines.length > 1) {
         
         // uncomment first line
-        if(lines[0].startsWith("// var context = require(") || lines[0].startsWith("// var util = require(") ) {
+        if(lines[0].startsWith('// var context = require(') || lines[0].startsWith('// var util = require(') ) {
             lines[0] = lines[0].replace('// ', '');
         }
 
         // uncomment second line
-        if(lines[1].startsWith("// var context = require(") || lines[1].startsWith("// var util = require(") ) {
+        if(lines[1].startsWith('// var context = require(') || lines[1].startsWith('// var util = require(') ) {
             lines[1] = lines[1].replace('// ', '');
         }
     }
@@ -749,12 +786,12 @@ function intellisenseUpload(sourceCode: string): string {
     if(lines.length > 1) {
         
         // comment first line
-        if(lines[0].startsWith("var context = require(") || lines[0].startsWith("var util = require(") ) {
+        if(lines[0].startsWith('var context = require(') || lines[0].startsWith('var util = require(') ) {
             lines[0] = '// ' + lines[0];
         }
 
         // comment second line
-        if(lines[1].startsWith("var context = require(") || lines[1].startsWith("var util = require(") ) {
+        if(lines[1].startsWith('var context = require(') || lines[1].startsWith('var util = require(') ) {
             lines[1] = '// ' + lines[1];
         }
     }
