@@ -15,16 +15,15 @@
     "email": "heller@otris.de"
   },
   "scripts": {
-    "compile": "tsc -p ./"
-  },
-  "devDependencies": {
-    "@types/node": "^7.0.4",
-    "typescript": "^2.2.1"
+    "compile": "tsc -p ./",
+    "postinstall": "tsc -p ./"
   },
   "dependencies": {
+    "@types/node": "^7.0.4",
     "commander": "^2.9.0",
     "node-sds": "git+https://git@github.com/otris/node-sds.git",
     "reduce-for-promises": "^1.2.1",
-    "strip-json-comments": "^2.0.1"
+    "strip-json-comments": "^2.0.1",
+    "typescript": "^2.2.1"
   }
 }
