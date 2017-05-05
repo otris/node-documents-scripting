@@ -1,7 +1,7 @@
 {
   "name": "node-documents-scripting",
   "version": "0.0.1",
-  "description": "",
+  "description": "This node module provides support for creating and editing JavaScript files on a DOCUMENTS Server.",
   "repository": {
     "type": "git",
     "url": "https://github.com/otris/node-documents-scripting"
