@@ -19,7 +19,6 @@
     "postinstall": "tsc -p ./"
   },
   "dependencies": {
-    "@types/node": "^7.0.4",
     "commander": "^2.9.0",
     "node-sds": "git+https://git@github.com/otris/node-sds.git",
     "reduce-for-promises": "^1.2.1",
