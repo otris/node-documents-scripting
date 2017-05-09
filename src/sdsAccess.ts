@@ -332,8 +332,9 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 export async function getScriptParameters(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.*generic', ['getScriptParameters2', '']).then((param) => {
-            resolve([]);
+        let jsonIn = '{\n"nameScript":"test_VSCode_folder1.1"\n}';
+        sdsConnection.callClassOperation('PortalScript.*generic', ['getScriptParameters2', jsonIn]).then((param) => {
+            resolve(param);
         }).catch((reason) => {
             reject('getScriptParameters failed: ' + reason);
         });
