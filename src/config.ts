@@ -15,6 +15,7 @@ export class LoginData {
     public sdsTimeout;
     public launchjson;
     public getLoginData: (loginData: LoginData) => Promise<void>;
+    public DocumentsVersion: string = '';
 
     constructor (_launchjson?: string) {
         if(_launchjson) {
