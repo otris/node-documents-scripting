@@ -330,16 +330,47 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 
-export async function getScriptParameters(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
+export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
-        let jsonIn = '{\n"nameScript":"test_VSCode_folder1.1"\n}';
-        sdsConnection.callClassOperation('PortalScript.*generic', ['getScriptParameters2', jsonIn]).then((param) => {
-            resolve(param);
+        let scriptname: string = params[0].name;
+        let jsonIn: string = '{\n"nameScript":"' + scriptname + '"\n}';
+        sdsConnection.callClassOperation('PortalScript.getScriptParameters', [jsonIn]).then((param) => {
+            let err = param[0];
+            if(0 < err.length) {
+                reject(err);
+            } else if(1 < param.length) {
+                let json = param[1];
+                resolve([json]);
+            }
         }).catch((reason) => {
             reject('getScriptParameters failed: ' + reason);
         });
     });
 }
+
+
+
+export async function getAllParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        let jsonOut: string[] = [];
+
+        // see description of reduce in uploadAll
+        return reduce(params, function(numScripts, _script) {
+            return getScriptParameters(sdsConnection, [_script]).then((value) => {
+                let jsonScript: string = value[0];
+                jsonOut.push(_script.name);
+                jsonOut.push(jsonScript);
+                return numScripts + 1;
+            });
+        }, 0).then((numScripts) => {
+            resolve(jsonOut);
+        }).catch((reason) => {
+            reject('getAllParameters failed: ' + reason);
+        });
+    });
+}
+
+
 
 
 export async function getSystemUser(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
