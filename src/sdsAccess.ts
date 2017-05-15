@@ -332,10 +332,10 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
-        let scriptname: string = params[0].name;
-        let jsonIn: string = '{\n"nameScript":"' + scriptname + '"\n}';
+        const scriptname: string = params[0].name;
+        const jsonIn: string = '{\n"nameScript":"' + scriptname + '"\n}';
         sdsConnection.callClassOperation('PortalScript.getScriptParameters', [jsonIn]).then((param) => {
-            let err = param[0];
+            const err = param[0];
             if(0 < err.length) {
                 reject(err);
             } else if(1 < param.length) {
@@ -357,7 +357,7 @@ export async function getAllParameters(sdsConnection: SDSConnection, params: scr
         // see description of reduce in uploadAll
         return reduce(params, function(numScripts, _script) {
             return getScriptParameters(sdsConnection, [_script]).then((value) => {
-                let jsonScript: string = value[0];
+                const jsonScript: string = value[0];
                 jsonOut.push(_script.name);
                 jsonOut.push(jsonScript);
                 return numScripts + 1;
