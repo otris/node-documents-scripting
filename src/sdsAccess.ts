@@ -342,7 +342,7 @@ export async function getScriptParameters(sdsConnection: SDSConnection, params: 
                 resolve([json]);
             }
         }).catch((error) => {
-            reject(error.message);
+            reject(error);
         });
     });
 }
@@ -364,7 +364,7 @@ export async function getAllParameters(sdsConnection: SDSConnection, params: scr
         }, 0).then((numScripts) => {
             resolve(jsonOut);
         }).catch((error) => {
-            reject(error.message);
+            reject(error);
         });
     });
 }
@@ -726,7 +726,7 @@ export async function getScriptsFromFolder(_path: string, nameprefix?: string): 
 
         fs.readdir(_path, function (err, files) {
             if (err) {
-                reject(err.message);
+                reject(err);
             } else if (!files) {
                 reject('unexpexted error in readdir: files is empty');
             } else {
@@ -771,7 +771,7 @@ export function getScript(file: string): scriptT | string {
             let _name = path.basename(file, '.js');
             return {name: _name, sourceCode: sc};
         } catch(err) {
-            return err.message;
+            return err;
         }
     } else {
         return 'only javascript files allowed';
