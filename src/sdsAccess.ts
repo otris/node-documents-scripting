@@ -333,8 +333,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
         const scriptname: string = params[0].name;
-        const jsonIn: string = '{\n"nameScript":"' + scriptname + '"\n}';
-        sdsConnection.callClassOperation('PortalScript.getScriptParameters', [jsonIn]).then((param) => {
+        sdsConnection.callClassOperation('PortalScript.getScriptInfoAsJSON', [scriptname]).then((param) => {
             const err = param[0];
             if(0 < err.length) {
                 reject(err);
@@ -342,8 +341,8 @@ export async function getScriptParameters(sdsConnection: SDSConnection, params: 
                 let json = param[1];
                 resolve([json]);
             }
-        }).catch((reason) => {
-            reject('getScriptParameters failed: ' + reason);
+        }).catch((error) => {
+            reject(error.message);
         });
     });
 }
@@ -364,8 +363,8 @@ export async function getAllParameters(sdsConnection: SDSConnection, params: scr
             });
         }, 0).then((numScripts) => {
             resolve(jsonOut);
-        }).catch((reason) => {
-            reject('getAllParameters failed: ' + reason);
+        }).catch((error) => {
+            reject(error.message);
         });
     });
 }
