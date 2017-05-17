@@ -330,16 +330,46 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 
-export async function getScriptParameters(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
+export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
-        let jsonIn = '{\n"nameScript":"test_VSCode_folder1.1"\n}';
-        sdsConnection.callClassOperation('PortalScript.*generic', ['getScriptParameters2', jsonIn]).then((param) => {
-            resolve(param);
-        }).catch((reason) => {
-            reject('getScriptParameters failed: ' + reason);
+        const scriptname: string = params[0].name;
+        sdsConnection.callClassOperation('PortalScript.getScriptInfoAsJSON', [scriptname]).then((param) => {
+            const err = param[0];
+            if(0 < err.length) {
+                reject(err);
+            } else if(1 < param.length) {
+                let json = param[1];
+                resolve([json]);
+            }
+        }).catch((error) => {
+            reject(error);
         });
     });
 }
+
+
+
+export async function getAllParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        let jsonOut: string[] = [];
+
+        // see description of reduce in uploadAll
+        return reduce(params, function(numScripts, _script) {
+            return getScriptParameters(sdsConnection, [_script]).then((value) => {
+                const jsonScript: string = value[0];
+                jsonOut.push(_script.name);
+                jsonOut.push(jsonScript);
+                return numScripts + 1;
+            });
+        }, 0).then((numScripts) => {
+            resolve(jsonOut);
+        }).catch((error) => {
+            reject(error);
+        });
+    });
+}
+
+
 
 
 export async function getSystemUser(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
@@ -696,7 +726,7 @@ export async function getScriptsFromFolder(_path: string, nameprefix?: string): 
 
         fs.readdir(_path, function (err, files) {
             if (err) {
-                reject(err.message);
+                reject(err);
             } else if (!files) {
                 reject('unexpexted error in readdir: files is empty');
             } else {
@@ -741,7 +771,7 @@ export function getScript(file: string): scriptT | string {
             let _name = path.basename(file, '.js');
             return {name: _name, sourceCode: sc};
         } catch(err) {
-            return err.message;
+            return err;
         }
     } else {
         return 'only javascript files allowed';
