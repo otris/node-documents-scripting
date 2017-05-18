@@ -48,7 +48,7 @@ export type scriptT = {
     rename?: string,
     path?: string,
     /**
-     * Source code of the script.
+     * Source code of script.
      */
     sourceCode?: string,
     /**
@@ -65,14 +65,14 @@ export type scriptT = {
      * If a script in conflict mode is uploaded, the hash value is used to
      * check, if the script (the source code of the script) on server has
      * changed since last up- or download.
-     * If the script in conlfict mode has been changed on server, it won't
+     * If the script in conflict mode has been changed on server, it won't
      * be uploaded, instead 'conflict' will be set to true.
      */
     conflictMode?: boolean,
     /**
      * Hash value of the source code at the time of last synchronisation,
      * meaning at the time of last up- or download.
-     * This value is only set if script is in conflict mode.
+     * This value is only set if the script is in conflict mode.
      */
     lastSyncHash?: string,
     /**
@@ -96,7 +96,7 @@ export type scriptT = {
 
 
 /**
- * Used for information that are independend from scripts.
+ * Used for information that is independend from scripts.
  * For now only version is used.
  */
 export type documentsT = {
@@ -413,6 +413,8 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
             }, 0).then((numscripts) => {
                 // this section is exectuted once after all _uploadScript calls are finished
                 resolve(scripts);
+            }).catch((error) => {
+                reject(error);
             });
         }
     });
@@ -444,6 +446,8 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[
                 });
             }, 0).then((numScripts) => {
                 resolve(returnScripts);
+            }).catch((error) => {
+                reject(error);
             });
         }
     });
@@ -469,6 +473,8 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
             });
         }, 0).then((numScripts) => {
             resolve(scripts);
+        }).catch((error) => {
+            reject(error);
         });
     });
 }
