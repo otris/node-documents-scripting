@@ -681,9 +681,8 @@ export async function writeFile(data, filename, allowSubFolder = false): Promise
     console.log('writeFile');
 
     return new Promise<void>((resolve, reject) => {
-
         let folder = path.dirname(filename);
-        if(folder && path.extname(filename)) {
+        if(folder) {
             fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
                 if(error) {
                     if(error.code === 'ENOENT' && allowSubFolder) {
