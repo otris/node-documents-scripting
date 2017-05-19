@@ -190,15 +190,13 @@ export async function sdsSession(loginData: config.LoginData,
             sdsSocket.on('error', (err: any) => {
                 console.log('callback socket.on(error)');
                 console.log(err);
+                // only reject here if on-connect couldn't start
                 if(onConnect) {
                     // reject is executed in on('connect') callback 
                 } else {
                     // on('connect') is not executed, so we must reject here
                     reject(err);
                 }
-
-                // only reject here if on-connect couldn't start
-                // reject('failed to connect to host: ' + loginData.server + ' and port: ' + loginData.port);
             });
 
 
