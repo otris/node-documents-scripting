@@ -44,7 +44,7 @@ async function uploadAndRunAll(loginData: config.LoginData, folder: string, pref
 program
     .version('0.0.1')
     .command('test <json> [dir...]')
-    .action(function (json, dir, filter) {
+    .action(function (json: string, dir: string, filter: string) {
         console.log('test json %s', json);
         if (dir) {
             console.log('test ' + dir[0]);

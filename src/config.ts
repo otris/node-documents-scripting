@@ -10,10 +10,10 @@ export class LoginData {
     public principal: string = '';
     public username: string = '';
     public password: string = '';
-    public userId;
+    public userId:any;
     // ~infinity: ms = 0x7FFFFFFF;
-    public sdsTimeout;
-    public launchjson;
+    public sdsTimeout: number;
+    public launchjson: string;
     public getLoginData: (loginData: LoginData) => Promise<void>;
     public DocumentsVersion: string = '';
 

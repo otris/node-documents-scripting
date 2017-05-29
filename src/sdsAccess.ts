@@ -2,12 +2,14 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { connect, Socket } from 'net';
-import * as reduce from 'reduce-for-promises';
 // let lastSyncHash = crypto.createHash('md5').update(data).digest("hex");
 import * as crypto from 'crypto';
-
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
+
+const reduce = require('reduce-for-promises');
+
+
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -352,16 +354,16 @@ export async function getAllParameters(sdsConnection: SDSConnection, params: scr
         let jsonOut: string[] = [];
 
         // see description of reduce in uploadAll
-        return reduce(params, function(numScripts, _script) {
+        return reduce(params, function(numScripts: number, _script: scriptT) {
             return getScriptParameters(sdsConnection, [_script]).then((value) => {
                 const jsonScript: string = value[0];
                 jsonOut.push(_script.name);
                 jsonOut.push(jsonScript);
                 return numScripts + 1;
             });
-        }, 0).then((numScripts) => {
+        }, 0).then((numScripts: number) => {
             resolve(jsonOut);
-        }).catch((error) => {
+        }).catch((error: any) => {
             reject(error);
         });
     });
@@ -399,7 +401,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
             // reduce calls _uploadScript for every name in scriptNames,
             // in doing so every call of _uploadScript is started after
             // the previous call is finished
-            return reduce(params, function(numscripts, _script) {
+            return reduce(params, function(numscripts: number, _script: scriptT) {
                 return uploadScript(sdsConnection, [_script]).then((value) => {
                     // this section is executed after every single _uploadScript call
                     if(0 <= value.length) {
@@ -408,10 +410,10 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
                     }
                     return numscripts + 1;
                 });
-            }, 0).then((numscripts) => {
+            }, 0).then((numscripts: number) => {
                 // this section is exectuted once after all _uploadScript calls are finished
                 resolve(scripts);
-            }).catch((error) => {
+            }).catch((error: any) => {
                 reject(error);
             });
         }
@@ -436,15 +438,15 @@ export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[
             resolve(returnScripts);
         } else {
             // see description of reduce in uploadAll
-            return reduce(scripts, function(numScripts, script) {
+            return reduce(scripts, function(numScripts: number, script: scriptT) {
                 return downloadScript(sdsConnection, [script]).then((retval) => {
                     let currentScript: scriptT = retval[0];
                     returnScripts.push(currentScript);
                     return numScripts + 1;
                 });
-            }, 0).then((numScripts) => {
+            }, 0).then((numScripts: number) => {
                 resolve(returnScripts);
-            }).catch((error) => {
+            }).catch((error: any) => {
                 reject(error);
             });
         }
@@ -463,15 +465,15 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
         let scripts: scriptT[] = [];
 
         // see description of reduce in uploadAll
-        return reduce(params, function(numScripts, _script) {
+        return reduce(params, function(numScripts: number, _script: scriptT) {
             return runScript(sdsConnection, [_script]).then((value) => {
                 let script: scriptT = value[0];
                 scripts.push(script);
                 return numScripts + 1;
             });
-        }, 0).then((numScripts) => {
+        }, 0).then((numScripts: number) => {
             resolve(scripts);
-        }).catch((error) => {
+        }).catch((error: any) => {
             reject(error);
         });
     });
@@ -677,7 +679,7 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
  * @param filename 
  * @param allowSubFolder 
  */
-export async function writeFile(data, filename, allowSubFolder = false): Promise<void> {
+export async function writeFile(data: any, filename: string, allowSubFolder = false): Promise<void> {
     console.log('writeFile');
 
     return new Promise<void>((resolve, reject) => {
