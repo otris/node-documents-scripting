@@ -227,10 +227,6 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
         sdsConnection.connect('vscode-documents-scripting').then(() => {
             console.log('connect successful');
             let username = loginData.username;
-            if('admin' !== loginData.username) {
-                username += "." + loginData.principal;
-            }
-
             return sdsConnection.changeUser(username, getJanusPassword(loginData.password));
 
         }).then(userId => {
