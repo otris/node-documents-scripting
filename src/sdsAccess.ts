@@ -519,7 +519,8 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         scriptPath = path.join(script.path? script.path: '', script.name + ".js");
                     }
 
-                    writeFile(scriptSource, scriptPath, true).then(() => {
+                    let noBomSourceCode = ensureNoBOM(scriptSource);
+                    writeFile(noBomSourceCode, scriptPath, true).then(() => {
                         setEncryptState(script, _encryptState);
                         if(script.conflictMode) {
                             script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest('hex');
