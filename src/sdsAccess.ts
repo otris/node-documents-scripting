@@ -10,6 +10,7 @@ import * as config from './config';
 const reduce = require('reduce-for-promises');
 
 
+const VERSION = '8034';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -240,7 +241,16 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
 
         }).then(() => {
             console.log('changePrincipal successful');
-            resolve(sdsConnection);
+            return sdsConnection.callClassOperation('PartnerNet.getVersionNo', []);
+
+        }).then((value) => {
+            let docVersion = value[0];
+            console.log(`Current version: ${docVersion} Required verson: ${VERSION}`);
+            if(Number(VERSION) <= Number(docVersion)) {
+                resolve(sdsConnection);
+            } else {
+                reject(`Current version: ${docVersion} Required verson: ${VERSION}`);
+            }
 
         }).catch((reason) => {
             reject('doLogin() failed: ' + reason);
