@@ -435,7 +435,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
  * @param sdsConnection 
  * @param params Array containing all scripts to download.
  */
-export async function dwonloadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function downloadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
         let scripts: scriptT[] = params;
