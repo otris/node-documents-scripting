@@ -10,6 +10,7 @@ export class LoginData {
     public principal: string = '';
     public username: string = '';
     public password: string = '';
+    public getPasswordFromFile: boolean = true;
     public userId:any;
     // ~infinity: ms = 0x7FFFFFFF;
     public sdsTimeout: number;
@@ -23,6 +24,10 @@ export class LoginData {
         }
     }
 
+    public setPassword(password: string) {
+        this.getPasswordFromFile = false;
+        this.password = password;
+    }
 
     public checkLoginData(): boolean {
         console.log('checkLoginData');
@@ -49,7 +54,9 @@ export class LoginData {
                         this.port = config.applicationPort;
                         this.principal = config.principal;
                         this.username = config.username;
-                        this.password = config.password;
+                        if (this.getPasswordFromFile) {
+                            this.password = config.password;
+                        }
                         this.sdsTimeout = config.sdsTimeout;
                     }
                 });
