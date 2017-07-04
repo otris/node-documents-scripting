@@ -48,7 +48,7 @@ program
         console.log('test json %s', json);
         if (dir) {
             console.log('test ' + dir[0]);
-            let loginData: config.LoginData = new config.LoginData(json);
+            let loginData: config.LoginData = new config.LoginData();
             // dir[1] == name-prefix
             let params = [dir[0], dir[1]];
             uploadAndRunAll(loginData, dir[0], dir[1]);

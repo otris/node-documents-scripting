@@ -10,24 +10,13 @@ export class LoginData {
     public principal: string = '';
     public username: string = '';
     public password: string = '';
-    public getPasswordFromFile: boolean = true;
-    public userId:any;
-    // ~infinity: ms = 0x7FFFFFFF;
+    public askForPassword: boolean = false;
+    public askForPasswordStr: string = '';
+    public userId: number;
     public sdsTimeout: number;
-    public launchjson: string;
+    public configFile: string;
     public getLoginData: (loginData: LoginData) => Promise<void>;
     public DocumentsVersion: string = '';
-
-    constructor (_launchjson?: string) {
-        if(_launchjson) {
-            this.launchjson = _launchjson;
-        }
-    }
-
-    public setPassword(password: string) {
-        this.getPasswordFromFile = false;
-        this.password = password;
-    }
 
     public checkLoginData(): boolean {
         console.log('checkLoginData');
@@ -37,13 +26,12 @@ export class LoginData {
         return true;
     }
 
-    public loadLaunchJson() : boolean {
-        console.log('loadLaunchJson');
-        if(!this.launchjson) {
-            return false;
-        }
+    public loadConfigFile(configFile: string) : boolean {
+        console.log('loadConfigFile');
+        this.configFile = configFile;
+
         try {
-            const jsonContent = fs.readFileSync(this.launchjson, 'utf8');
+            const jsonContent = fs.readFileSync(this.configFile, 'utf8');
             const jsonObject = JSON.parse(stripJsonComments(jsonContent));
             const configurations = jsonObject.configurations;
 
@@ -54,9 +42,10 @@ export class LoginData {
                         this.port = config.applicationPort;
                         this.principal = config.principal;
                         this.username = config.username;
-                        if (this.getPasswordFromFile) {
-                            this.password = config.password;
+                        if(this.askForPasswordStr === config.password) {
+                            this.askForPassword = true;
                         }
+                        this.password = config.password;
                         this.sdsTimeout = config.sdsTimeout;
                     }
                 });
@@ -69,21 +58,19 @@ export class LoginData {
     }
 
     async ensureLoginData(): Promise<void> {
-        console.log('ensureLoginData');
+        console.log(`ensureLoginData start: ask ${this.askForPassword} askStr ${this.askForPasswordStr} pw ${this.password}`);
         return new Promise<void>((resolve, reject) => {
-        
-            // todo: change to callback to make it
-            // independend from special file launch.json
-            this.loadLaunchJson();
 
-            if(this.checkLoginData()) {
+            const askpw = (this.askForPassword && (this.askForPasswordStr === this.password));
+            if(this.checkLoginData() && !askpw) {
                 resolve();
+
             } else if(this.getLoginData) {
 
                 // is this ok? maybe change to callback parameter...
                 this.getLoginData(this).then(() => {
 
-                    if(this.checkLoginData()) {
+                    if(this.checkLoginData() && (this.askForPasswordStr !== this.password)) {
                         resolve();
                     } else {
                         reject('getting login data failed');
