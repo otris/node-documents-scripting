@@ -18,6 +18,13 @@ export class LoginData {
     public getLoginData: (loginData: LoginData) => Promise<void>;
     public DocumentsVersion: string = '';
 
+    public resetLoginData() {
+        this.server = '';
+        this.port = 0;
+        this.principal = '';
+        this.username = '';
+    }
+
     public checkLoginData(): boolean {
         console.log('checkLoginData');
         if('' === this.server || 0  === this.port || '' === this.principal || '' === this.username) {
