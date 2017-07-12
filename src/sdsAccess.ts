@@ -246,10 +246,12 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
         }).then((value) => {
             let docVersion = value[0];
             console.log(`Current version: ${docVersion} Required verson: ${VERSION}`);
-            if(Number(VERSION) <= Number(docVersion)) {
-                resolve(sdsConnection);
-            } else {
+            if(!Number(docVersion)) {
+                reject(`This command is only available on DOCUMENTS`);
+            } else if(Number(VERSION) > Number(docVersion)) {
                 reject(`Current version: ${docVersion} Required verson: ${VERSION}`);
+            } else {
+                resolve(sdsConnection);
             }
 
         }).catch((reason) => {
