@@ -236,7 +236,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
             if (loginData.principal.length > 0) {
                 return sdsConnection.changePrincipal(loginData.principal);
             } else {
-                reject('doLogin(): please set principal');
+                reject('please set principal');
             }
 
         }).then(() => {
@@ -619,7 +619,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             if(script.sourceCode) {
 
                 // call checkForConflict WITH BOM
-                let bomSourceCode:string = ensureBOM(script.sourceCode); // intellisenseUpload(script.sourceCode);
+                let bomSourceCode:string = ensureBOM(script.sourceCode);
                 script.sourceCode = bomSourceCode;
                 updateScriptProperties(sdsConnection, [script]).then((value) => {
                     const retscript = value[0];
@@ -830,39 +830,4 @@ function ensureBOM(sourceCode: string): string {
 }
 function ensureNoBOM(sourceCode: string): string {
     return sourceCode.replace(/^\ufeff/, '');
-}
-
-
-function intellisenseDownload(sourceCode: string): string {
-    let lines = sourceCode.split('\n');
-    if(lines.length > 1) {
-        
-        // uncomment first line
-        if(lines[0].startsWith('// var context = require(') || lines[0].startsWith('// var util = require(') ) {
-            lines[0] = lines[0].replace('// ', '');
-        }
-
-        // uncomment second line
-        if(lines[1].startsWith('// var context = require(') || lines[1].startsWith('// var util = require(') ) {
-            lines[1] = lines[1].replace('// ', '');
-        }
-    }
-    return lines.join('\n');
-}
-
-function intellisenseUpload(sourceCode: string): string {
-    let lines = sourceCode.split('\n');
-    if(lines.length > 1) {
-        
-        // comment first line
-        if(lines[0].startsWith('var context = require(') || lines[0].startsWith('var util = require(') ) {
-            lines[0] = '// ' + lines[0];
-        }
-
-        // comment second line
-        if(lines[1].startsWith('var context = require(') || lines[1].startsWith('var util = require(') ) {
-            lines[1] = '// ' + lines[1];
-        }
-    }
-    return lines.join('\n');
 }
