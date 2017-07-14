@@ -225,7 +225,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
         let sdsConnection = new SDSConnection(sdsSocket);
         sdsConnection.timeout = loginData.sdsTimeout? loginData.sdsTimeout: SDS_DEFAULT_TIMEOUT;
 
-        sdsConnection.connect('vscode-documents-scripting').then(() => {
+        sdsConnection.connect('node-documents-scripting').then(() => {
             console.log('connect successful');
             let username = loginData.username;
             return sdsConnection.changeUser(username, getJanusPassword(loginData.password));
@@ -246,7 +246,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
         }).then((value) => {
             let docVersion = value[0];
             console.log(`Current version: ${docVersion} Required verson: ${VERSION}`);
-            if(!Number(docVersion)) {
+            if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);
             } else if(Number(VERSION) > Number(docVersion)) {
                 reject(`Current version: ${docVersion} Required verson: ${VERSION}`);
@@ -255,7 +255,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
             }
 
         }).catch((reason) => {
-            reject('doLogin() failed: ' + reason);
+            reject(reason + ` - check ".vscode/launch.json"`);
             closeConnection(sdsConnection).catch((reason) => {
                 console.log(reason);
             });
