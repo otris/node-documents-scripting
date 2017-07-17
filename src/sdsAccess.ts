@@ -6,6 +6,7 @@ import { connect, Socket } from 'net';
 import * as crypto from 'crypto';
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
+import { Logger } from 'node-file-log';
 
 const reduce = require('reduce-for-promises');
 
@@ -39,9 +40,16 @@ export type scriptT = {
     output?: string,
     /**
      * Encryption state.
-     * See enum encrypted for more information.
+     * true: script is encrypted on server and in VS Code
+     * false: script is not encrypted on server and not encrypted in VS Code
+     * decrypted: script is encrypted on server and not encrypted in VS Code
      */
     encrypted?: string,
+
+    /**
+     * Force encryption state set by user.
+     */
+    forceEncrypted?: boolean,
 
     /**
      * If a script in conflict mode is uploaded, the hash value is used to
@@ -490,8 +498,8 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                 } else if(!retval[0] || typeof(retval[0]) != 'string') {
                     reject('could not find ' + script.name + ' on server');
                 } else {
-                    let scriptSource = ensureNoBOM(retval[0]);
-                    let encrypted = retval[1];
+                    script.serverCode = ensureNoBOM(retval[0]);
+                    script.encrypted = retval[1];
 
                     let scriptPath;
                     if(script.rename) {
@@ -501,10 +509,10 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         scriptPath = path.join(script.path? script.path: '', script.name + ".js");
                     }
 
-                    writeFile(scriptSource, scriptPath, true).then(() => {
-                        script.encrypted = encrypted;
+                    writeFile(script.serverCode, scriptPath, true).then(() => {
+                        script.sourceCode = script.serverCode;
                         if(script.conflictMode) {
-                            script.lastSyncHash = crypto.createHash('md5').update(scriptSource).digest('hex');
+                            script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
                         }
                         resolve([script]);
                     }).catch((reason) => {
@@ -518,51 +526,63 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
     });
 }
 
+const encryptionLog = Logger.create('encryptionLog');
+
+function logEncryption(name: string, encrypted: string, code: string) {
+    const space = code.indexOf(' ');
+
+    if(encrypted === 'true'      && space <  0 ||
+       encrypted === 'false'     && space >= 0 ||
+       encrypted === 'decrypted' && space >= 0) {
+        return;
+    }
+    
+    encryptionLog.error(name + ' ' + encrypted + ' ' + code.substr(0, 100));
+}
+
+
 /**
  * If the given script can be uploaded, an empty list is returned.
- * If not, a script containing the server source code is returned.
+ * If not, a script containing the server source code and the server
+ * encrypt state is returned.
  * Both cases are resolved. Reject only in case of error.
  * 
  * @param sdsConnection 
  * @param params 
  */
-export async function updateScriptProperties(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export function updateScriptProperties(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
 
         } else {
             let script: scriptT = params[0];
-            
+
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                 if(value && value.length >= 2 && typeof(value[0]) === 'string') {
-                    script.serverCode = ensureNoBOM(value[0]);
-                    script.encrypted = value[1];
 
+                    // source code on server
+                    script.serverCode = ensureNoBOM(value[0]);
+
+                    // update encrypt state
+                    if(!script.forceEncrypted || !script.encrypted) {
+                        script.encrypted = value[1];
+                    }
+
+                    // try to find inconsistencies between source code
+                    // and flag on server
+                    logEncryption(script.name, script.encrypted, script.serverCode);
+
+                    // update conflict state
                     if(script.conflictMode && !script.forceUpload && script.lastSyncHash) {
                         let serverHash = crypto.createHash('md5').update(script.serverCode || '').digest('hex');
-                        if(script.lastSyncHash === serverHash) {
-                            console.log('checkForConflict: no changes on server');
-                            resolve([script]);
-                        } else {
-                            console.log('checkForConflict: script changed on server');
+                        if(script.lastSyncHash !== serverHash) {
                             script.conflict = true;
-                            resolve([script]);
+                            console.log('checkForConflict: script changed on server');
                         }
-                    } else {
-                        console.log('checkForConflict: conflictMode off or no lastSyncHash');
-                        resolve([script]);
                     }
-                } else {
-                    console.log('checkForConflict: new file');
-
-                    // todo: check project flag
-                    // script not on server, new script, so check source code for encryption
-                    // if(script.sourceCode && 0 <= script.sourceCode.indexOf('// #crypt')) {
-                    //     script.encrypted = encrypted.decrypted;
-                    // }
-                    resolve([script]);
                 }
+                resolve([script]);
             }).catch((reason) => {
                 reject(reason);
             });
