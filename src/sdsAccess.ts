@@ -47,11 +47,6 @@ export type scriptT = {
     encrypted?: string,
 
     /**
-     * Force encryption state set by user.
-     */
-    forceEncrypted?: boolean,
-
-    /**
      * If a script in conflict mode is uploaded, the hash value is used to
      * check, if the script (the source code of the script) on server has
      * changed since last up- or download.
@@ -109,15 +104,12 @@ export type serverOperationT = (sdsConn: SDSConnection, param: any[]) => Promise
  * @param serverOperation the operation to be called on server, should be one of the
  * functions that are implemented below
  */
-export async function sdsSession(loginData: config.LoginData,
-                                 param: any[],
-                                 serverOperation: serverOperationT): Promise<any[]> {
-
+export async function sdsSession(loginData: config.LoginData, param: any[], serverOperation: serverOperationT): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
-        if(!loginData) {
-            reject('login data missing');
-        }
 
+        if(!loginData) {
+            return reject('login data missing');
+        }
 
         // first try to get the login data
         loginData.ensureLoginData().then(() => {
@@ -189,13 +181,9 @@ export async function sdsSession(loginData: config.LoginData,
                 }
             });
 
-
-
         }).catch((reason) => {
             reject(reason);
         });
-
-
     });
 }
 
@@ -489,15 +477,19 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
+
         } else {
-            
             let script: scriptT = params[0];
+            if(!script.path) {
+                return reject('path missing');
+            }
+
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((retval) => {
-                if(!script.path) {
-                    reject('path missing');
-                } else if(!retval[0] || typeof(retval[0]) != 'string') {
-                    reject('could not find ' + script.name + ' on server');
-                } else {
+                if(!retval[0] || typeof(retval[0]) != 'string') {
+                    return reject('could not find ' + script.name + ' on server');
+                }
+                
+                if('false' === retval[1] || 'decrypted' === retval[1]) {
                     script.serverCode = ensureNoBOM(retval[0]);
                     script.encrypted = retval[1];
 
@@ -518,6 +510,8 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     }).catch((reason) => {
                         reject(reason);
                     });
+                } else {
+                    reject('Only unencrypted or decrypted scripts can be downloaded');
                 }
             }).catch((reason) => {
                 reject(reason);
@@ -526,19 +520,6 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
     });
 }
 
-const encryptionLog = Logger.create('encryptionLog');
-
-function logEncryption(name: string, encrypted: string, code: string) {
-    const space = code.indexOf(' ');
-
-    if(encrypted === 'true'      && space <  0 ||
-       encrypted === 'false'     && space >= 0 ||
-       encrypted === 'decrypted' && space >= 0) {
-        return;
-    }
-    
-    encryptionLog.error(name + ' ' + encrypted + ' ' + code.substr(0, 100));
-}
 
 
 /**
@@ -558,31 +539,24 @@ export function updateScriptProperties(sdsConnection: SDSConnection, params: scr
         } else {
             let script: scriptT = params[0];
 
+            // todo only download script in conflictMode
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                 if(value && value.length >= 2 && typeof(value[0]) === 'string') {
-
-                    // source code on server
-                    script.serverCode = ensureNoBOM(value[0]);
-
-                    // update encrypt state
-                    if(!script.forceEncrypted || !script.encrypted) {
-                        script.encrypted = value[1];
-                    }
-
-                    // try to find inconsistencies between source code
-                    // and flag on server
-                    logEncryption(script.name, script.encrypted, script.serverCode);
+                    const serverCode = ensureNoBOM(value[0]);
 
                     // update conflict state
                     if(script.conflictMode && !script.forceUpload && script.lastSyncHash) {
-                        let serverHash = crypto.createHash('md5').update(script.serverCode || '').digest('hex');
+                        let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
                         if(script.lastSyncHash !== serverHash) {
+                            script.serverCode = serverCode;
                             script.conflict = true;
                             console.log('checkForConflict: script changed on server');
                         }
                     }
+                    resolve([script]);
+                } else {
+                    reject();
                 }
-                resolve([script]);
             }).catch((reason) => {
                 reject(reason);
             });
@@ -600,6 +574,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
+
         } else {
             
             let script: scriptT = params[0];
@@ -611,23 +586,19 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
                     if(!retscript.conflict) {
 
-                        // get encryption state from downloaded script
-                        script.encrypted = retscript.encrypted;
-
                         // create parameter for uploadScript call
                         let params = [script.name, script.sourceCode || '', script.encrypted || 'false'];
 
                         return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
                             if(script.conflictMode) {
                                 // create hash with BOM, because server returns the source-code always with BOM
-                                 // todo: source-code should be uploaded with BOM
+                                // todo: source-code should be uploaded with BOM
                                script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest("hex");
                             }
                             console.log('uploaded: ', script.name);
                             resolve([script]);
                         });
                     } else {
-                        //
                         resolve([retscript]);
                     }
                 }).catch((reason) => {
