@@ -533,7 +533,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
  * @param sdsConnection 
  * @param params 
  */
-export function updateScriptProperties(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -590,7 +590,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 }
 
                 script.sourceCode = ensureNoBOM(script.sourceCode);
-                updateScriptProperties(sdsConnection, [script]).then((value) => {
+                checkForConflict(sdsConnection, [script]).then((value) => {
                     const retscript = value[0];
 
                     if(!retscript.conflict) {
