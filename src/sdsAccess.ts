@@ -541,20 +541,24 @@ export function updateScriptProperties(sdsConnection: SDSConnection, params: scr
         } else {
             let script: scriptT = params[0];
 
-            // todo only download script in conflictMode
+            // todo: why script.lastSyncHash? why not using empty string if it's undefined?
+            if(!script.conflictMode || script.forceUpload || !script.lastSyncHash) {
+                return resolve([script]);
+            }
+
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
                 if(value && value.length >= 2 && typeof(value[0]) === 'string') {
                     const serverCode = ensureNoBOM(value[0]);
 
                     // update conflict state
-                    if(script.conflictMode && !script.forceUpload && script.lastSyncHash) {
-                        let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
-                        if(script.lastSyncHash !== serverHash) {
-                            script.serverCode = serverCode;
-                            script.conflict = true;
-                            console.log('checkForConflict: script changed on server');
-                        }
+                    let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
+                    if(script.lastSyncHash !== serverHash) {
+                        // only set server code if it's defferent from local code
+                        script.serverCode = serverCode;
+                        script.conflict = true;
+                        console.log('checkForConflict: script changed on server');
                     }
+
                     resolve([script]);
                 } else {
                     reject();
