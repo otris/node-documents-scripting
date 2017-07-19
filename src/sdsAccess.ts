@@ -11,6 +11,8 @@ import { Logger } from 'node-file-log';
 const reduce = require('reduce-for-promises');
 
 
+const logger = Logger.create('node-documents-scripting');
+
 const VERSION = '8034';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
@@ -579,6 +581,9 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             
             let script: scriptT = params[0];
             if(script.sourceCode) {
+                if(0 > script.sourceCode.indexOf(' ')) {
+                    logger.warn(script.name + ' ' + script.encrypted + ' ' + script.sourceCode.substr(0, 100));
+                }
 
                 script.sourceCode = ensureNoBOM(script.sourceCode);
                 updateScriptProperties(sdsConnection, [script]).then((value) => {
