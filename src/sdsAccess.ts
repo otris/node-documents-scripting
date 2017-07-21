@@ -77,7 +77,8 @@ export type scriptT = {
      * forceUpload is set to true if conflict is true and the user decided
      * to upload and overwrite the script on server anyway.
      */
-    forceUpload?: boolean
+    forceUpload?: boolean,
+    category?: string
 };
 
 
@@ -501,6 +502,10 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                     } else {
                         scriptPath = path.join(script.path? script.path: '', script.name + ".js");
+                    }
+
+                    if(retval[2] && typeof(retval[2] === 'string')) {
+                        script.category = retval[2];
                     }
 
                     writeFile(script.serverCode, scriptPath, true).then(() => {
