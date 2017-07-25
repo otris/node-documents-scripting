@@ -590,9 +590,6 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             
             let script: scriptT = params[0];
             if(script.sourceCode) {
-                if(0 > script.sourceCode.indexOf(' ')) {
-                    logger.warn(script.name + ' ' + script.encrypted + ' ' + script.sourceCode.substr(0, 100));
-                }
 
                 script.sourceCode = ensureNoBOM(script.sourceCode);
                 checkForConflict(sdsConnection, [script]).then((value) => {
