@@ -601,7 +601,10 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                     if(!retscript.conflict) {
 
                         // create parameter for uploadScript call
-                        let params = [script.name, script.sourceCode || '', script.encrypted || 'false'];
+                        let params = [script.name,
+                                      script.sourceCode || '',
+                                      script.encrypted || 'false',
+                                      script.category || ''];
 
                         return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
                             if(script.conflictMode) {
