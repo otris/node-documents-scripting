@@ -2,6 +2,8 @@ import * as os from 'os';
 import * as config from './config';
 import { SDSConnection } from 'node-sds';
 import * as sdsAccess from './sdsAccess';
+import * as path from 'path';
+import * as fs from 'fs';
 
 
 export let cmdvar = 0;
@@ -12,6 +14,37 @@ var program = require('commander');
 
 // set up sdsAccess
 
+
+/**
+ * Uploads the passed files
+ * @param loginData - Login data for authentication with the DOCUMENTS-server
+ * @param files - Array of locale file paths to upload
+ */
+async function upload(loginData: config.LoginData, files: string[]) {
+    return new Promise<void>((resolve, reject) => {
+        let filesToUpload: sdsAccess.scriptT[] = [];
+
+        // resolve file paths to scriptT-objects
+        files.forEach((file) => {
+            if (fs.existsSync(file)) {
+                filesToUpload.push({
+                    name: path.parse(file).name,
+                    path: file,
+                    sourceCode: fs.readFileSync(file).toString()
+                });
+            } else {
+                reject(`The file '${file}' doesn't exists.`);
+            }
+        });
+
+        // upload the scripts
+        return sdsAccess.sdsSession(loginData, filesToUpload, sdsAccess.uploadAll).then(() => {
+            resolve();
+        }).catch((reason) => {
+            reject(reason);
+        });
+    });
+}
 
 async function uploadAndRunAll(loginData: config.LoginData, folder: string, prefix: string): Promise<sdsAccess.scriptT[]> {
     return new Promise<sdsAccess.scriptT[]>((resolve, reject) => {
