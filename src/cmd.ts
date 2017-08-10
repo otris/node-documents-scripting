@@ -213,7 +213,7 @@ async function uploadAndRunAll(loginData: config.LoginData, folder: string, pref
                 });
             });
         }).catch((reason) => {
-            reject();
+            reject(reason);
         });
     });
 }
@@ -308,12 +308,11 @@ program
         }
     });
 
-// program
-//   .version('0.0.1')
-//   .option('-u, --upload', 'upload only')
-//   .option('-r, --run', 'upload and run')
-//   .parse(process.argv);
-
+/**
+ * Command for upload and execute scripts from a directory.
+ * @example
+ * node cmd.js test <path to launch.json> <directory path> <prefix of scripts to execute>
+ */
 program
     .version('0.0.1')
     .command('test <json> [dir...]')
@@ -322,6 +321,7 @@ program
         if (dir) {
             console.log('test ' + dir[0]);
             let loginData: config.LoginData = new config.LoginData();
+            loginData.loadConfigFile(json)
             // dir[1] == name-prefix
             let params = [dir[0], dir[1]];
             uploadAndRunAll(loginData, dir[0], dir[1]);
