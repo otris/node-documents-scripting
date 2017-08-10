@@ -38,6 +38,67 @@ function readDirSync(dir: string, rec: boolean = true): string[] {
 }
 
 /**
+ * Resolves a wildcard path and returns a list of files matches the wildcard path.
+ * @param wildcardPath - File path which can contain wildcards
+ * @returns List of files matching the path
+ * @example
+ * // Use wildcard
+ * let files: string[] = resolveWildcardPath("src/test/*.js");
+ *
+ * // Use wildcards with recursion
+ * let files: string[] = resolveWildcardPath("src/test/ ** /*.js"); // ignore the spacec before and after the "**"
+ */
+function resolveWildcardPath(wildcardPath: string): string[] {
+    // resolve wildcards in the file path
+    let indexOf = wildcardPath.indexOf("/**");
+    let recursive = indexOf > -1;
+
+    if (recursive) {
+        wildcardPath = wildcardPath.replace("/**", "");
+    }
+
+    // if the path contains a wildcard, we have to make sure that wildcards can only be used at the end of a path
+    indexOf = wildcardPath.lastIndexOf("/");
+    let wildcardIndex = wildcardPath.indexOf("*");
+    let wildcard = "";
+    let wildcardReg: RegExp;
+
+    if (wildcardIndex > -1) {
+        if (wildcardIndex < indexOf) {
+            throw new Error("Wildcards can only be used at the end of the path: " + wildcard);
+        } else {
+            wildcard = wildcardPath.substr(indexOf + 1).split(".").join("\\.").split("*").join(".*");
+            wildcardPath = wildcardPath.substr(0, indexOf);
+
+            try {
+                wildcardReg = new RegExp("^" + wildcard + "$");
+            } catch (err) {
+                throw new Error("Invalid wildcard expression: " + wildcard);
+            }
+        }
+    }
+
+    // Get the files
+    let files: string[] = [];
+    if (!fs.existsSync(wildcardPath)) {
+        throw new Error(`The path '${wildcardPath}' doesn't exists`);
+    } else if (fs.statSync(wildcardPath).isFile()) {
+        files.push(wildcardPath);
+    } else {
+        files = readDirSync(wildcardPath, recursive);
+    }
+
+    if (wildcard !== "") {
+        // Filter the files
+        files = files.filter((file) => {
+            return wildcardReg.test(path.parse(file).base);
+        });
+    }
+
+    return files;
+}
+
+/**
  * Executes a script
  * @param loginData - Login data for authentication with the DOCUMENTS-server
  * @param file - local file path to a script to execute or the script name on the DOCUMENTS-server
