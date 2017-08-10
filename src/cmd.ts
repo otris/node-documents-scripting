@@ -14,6 +14,28 @@ var program = require('commander');
 
 // set up sdsAccess
 
+/**
+ * Returns a list of files inside a directory
+ * @param dir - directory path
+ * @param [rec=true] - Specifies wether to read the directory recursive
+ * @returns List of files
+ */
+function readDirSync(dir: string, rec: boolean = true): string[] {
+    let results: string[] = [];
+    let list = fs.readdirSync(dir);
+
+    list.forEach(function (elem) {
+        elem = path.join(dir, elem);
+
+        if (fs.statSync(elem).isFile()) {
+            results.push(elem);
+        } else if (rec) {
+            results = results.concat(readDirSync(elem, rec));
+        }
+    });
+
+    return results;
+}
 
 /**
  * Executes a script
