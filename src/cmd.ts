@@ -218,6 +218,52 @@ async function uploadAndRunAll(loginData: config.LoginData, folder: string, pref
     });
 }
 
+/**
+ * Command for executing files
+ * @example
+ * node cmd.js run <path to launch.json> <path to file/dir with or without wildcards>
+ */
+program
+    .version("0.0.1")
+    .command("run <json> <dir...>")
+    .action((json: string, dir: string[]) => {
+        try {
+            if (typeof json === "undefined" || json === "") {
+                throw new Error("No launch.json passed");
+            } else if (!fs.existsSync(json)) {
+                throw new Error(`The passed launch.json doesn't exists: ${json}`);
+            }
+
+            if (typeof dir === "undefined" || dir.length < 1) {
+                throw new Error("No directory or file passed.");
+            }
+
+            if (dir.length > 1) {
+                throw new Error("If you use wildcards in your path, set the path in quotemarks");
+            }
+
+            // we have only one element in the dir-array:
+            // [0] => path (with or without) wildcards to upload (can be a directory or a file)
+            let wildcardPath = dir[0].split("\\").join("/");
+
+            // resolve the wildcard path
+            let filesToRun = resolveWildcardPath(wildcardPath);
+
+            // Execute the file(s)
+            let loginData: config.LoginData = new config.LoginData();
+            if (!loginData.loadConfigFile(json)) {
+                throw new Error("Unable to load the config file.");
+            }
+
+            if (filesToRun.length <= 1) {
+                run(loginData, filesToRun[0]);
+            } else {
+                runAll(loginData, filesToRun);
+            }
+        } catch (err) {
+            console.log(`Error occured: ${err.message}`);
+        }
+    });
 
 // program
 //   .version('0.0.1')
