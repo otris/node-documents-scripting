@@ -16,6 +16,42 @@ var program = require('commander');
 
 
 /**
+ * Executes a script
+ * @param loginData - Login data for authentication with the DOCUMENTS-server
+ * @param file - local file path to a script to execute or the script name on the DOCUMENTS-server
+ * @param [uploadScript] - Specifies whether to upload the script before running
+ * @returns The output of the script
+ */
+async function run(loginData: config.LoginData, file: string, uploadScript: boolean = false): Promise<string> {
+    return new Promise<string>(async (resolve, reject) => {
+        if (uploadScript) {
+            await upload(loginData, [file]);
+        }
+
+        // run the script
+        let script = {
+            name: path.parse(file).name
+        };
+
+        return sdsAccess.sdsSession(loginData, [script], sdsAccess.runScript).then((executedScripts: sdsAccess.scriptT[]) => {
+            // the array can only contain 1 element
+            if (executedScripts.length > 1) {
+                reject(`received more then 1 script after run script: ${executedScripts.length}`);
+            } else if (executedScripts.length < 1) {
+                reject(`no scripts received after execute script '${file}'`);
+            } else {
+                let script: sdsAccess.scriptT = executedScripts[0];
+
+                console.log(`\nExecuted script '${file}':\n${script.output}`);
+                resolve(script.output);
+            }
+        }).catch((reason) => {
+            reject(reason);
+        });
+    });
+}
+
+/**
  * Uploads the passed files
  * @param loginData - Login data for authentication with the DOCUMENTS-server
  * @param files - Array of locale file paths to upload
