@@ -52,6 +52,38 @@ async function run(loginData: config.LoginData, file: string, uploadScript: bool
 }
 
 /**
+ * 
+ * @param loginData - Login data for authentication with to DOCUMENTS-server
+ * @param files - File paths or the file names to run
+ * @param [uploadScript] - Specifies whether to upload the script before running
+ */
+async function runAll(loginData: config.LoginData, files: string[], uploadScripts: boolean = false): Promise<sdsAccess.scriptT[]> {
+    return new Promise<sdsAccess.scriptT[]>(async (resolve, reject) => {
+        if (uploadScripts) {
+            await upload(loginData, files);
+        }
+
+        // resolve file paths to scriptT-objects
+        let scriptsToExecute: sdsAccess.scriptT[] = [];
+        files.forEach((file) => {
+            scriptsToExecute.push({
+                name: path.parse(file).name
+            });
+        });
+        console.log(JSON.stringify(scriptsToExecute));
+
+        // Execute the scripts
+        return sdsAccess.sdsSession(loginData, scriptsToExecute, sdsAccess.runAll).then((executedScripts) => {
+            executedScripts.forEach((script: sdsAccess.scriptT) => {
+                console.log(`\nExecuted script '${script.name}':\n${script.output}`);
+            });
+
+            resolve(executedScripts);
+        });
+    });
+}
+
+/**
  * Uploads the passed files
  * @param loginData - Login data for authentication with the DOCUMENTS-server
  * @param files - Array of locale file paths to upload
