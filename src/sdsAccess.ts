@@ -17,7 +17,7 @@ const VERSION = '8034';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
-
+const ERROR_DECRYPT_PERMISSION = 'Only unencrypted or decrypted scripts can be downloaded';
 
 
 export type scriptT = {
@@ -426,9 +426,14 @@ export async function downloadAll(sdsConnection: SDSConnection, params: scriptT[
             // see description of reduce in uploadAll
             return reduce(scripts, function(numScripts: number, script: scriptT) {
                 return downloadScript(sdsConnection, [script]).then((retval) => {
-                    let currentScript: scriptT = retval[0];
+                    const currentScript: scriptT = retval[0];
                     returnScripts.push(currentScript);
                     return numScripts + 1;
+                }).catch((error: Error) => {
+                    console.log('downloadScript -> catch ' + error.message);
+                    if(error.message !== ERROR_DECRYPT_PERMISSION) {
+                        reject(error);
+                    }
                 });
             }, 0).then((numScripts: number) => {
                 resolve(returnScripts);
@@ -518,7 +523,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         reject(reason);
                     });
                 } else {
-                    reject('Only unencrypted or decrypted scripts can be downloaded');
+                    reject(new Error(ERROR_DECRYPT_PERMISSION));
                 }
             }).catch((reason) => {
                 reject(reason);
@@ -587,7 +592,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             resolve([]);
 
         } else {
-            
+
             let script: scriptT = params[0];
             if(script.sourceCode) {
 
