@@ -72,9 +72,4 @@ program.parse(process.argv);
 // }
 
 
-// github-https-link: https://github.com/otris/node-documents-scripting.git
-// npm install git+github-https-link
-// =>
-// npm install git+https://github.com/otris/node-documents-scripting.git
-//
-// node .\node_modules\node-documents-scripting\out\src\cmd.js test C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder _test
+// node .\out\src\cmd.js upload C:\projekte\vscode-live-demo\.vscode\launch.json C:\projekte\vscode-live-demo\subfolder
