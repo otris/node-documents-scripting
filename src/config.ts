@@ -11,7 +11,7 @@ export class LoginData {
     public username: string = '';
     public password: string = '';
     public askForPassword: boolean = false;
-    public askForPasswordStr: string = '';
+    public askForPasswordStr: string;
     public userId: number;
     public sdsTimeout: number;
     public configFile: string;
