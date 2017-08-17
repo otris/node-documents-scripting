@@ -716,6 +716,59 @@ export async function writeFile(data: any, filename: string, allowSubFolder = fa
 
 
 /**
+ * Returns a list of files inside a directory
+ * @param dir - directory path
+ * @param [rec=true] - Specifies wether to read the directory recursive
+ * @returns List of files
+ */
+export function readDirSync(dir: string, rec: boolean = true): string[] {
+    let results: string[] = [];
+    let list = fs.readdirSync(dir);
+
+    list.forEach(function (elem) {
+        elem = path.join(dir, elem);
+
+        if (fs.statSync(elem).isFile()) {
+            results.push(elem);
+        } else if (rec) {
+            results = results.concat(readDirSync(elem, rec));
+        }
+    });
+
+    return results;
+}
+
+
+/**
+ * Returns a list of scripts inside a directory
+ * @param dir - directory path
+ * @param [subfolders=true] - Specifies wether to read the directory recursive
+ * @returns List of scripts
+ */
+export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true): scriptT[] {
+    let scripts: scriptT[] = [];
+    const filepaths = readDirSync(dir, subfolders);
+    
+    // resolve file paths to scriptT-objects
+    filepaths.forEach((file) => {
+        if (fs.existsSync(file)) {
+            scripts.push({
+                name: path.parse(file).name,
+                path: file,
+                sourceCode: fs.readFileSync(file).toString()
+            });
+        } else {
+            throw new Error(`The file '${file}' doesn't exists.`);
+        }
+    });
+
+    return scripts;
+}
+
+
+/**
+ * TODO: remove this function
+ * 
  * Return a list of all names of all JavaScript files in the given folder.
  * 
  * @param _path Foder

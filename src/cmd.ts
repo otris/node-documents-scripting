@@ -14,28 +14,6 @@ var program = require('commander');
 
 // set up sdsAccess
 
-/**
- * Returns a list of files inside a directory
- * @param dir - directory path
- * @param [rec=true] - Specifies wether to read the directory recursive
- * @returns List of files
- */
-function readDirSync(dir: string, rec: boolean = true): string[] {
-    let results: string[] = [];
-    let list = fs.readdirSync(dir);
-
-    list.forEach(function (elem) {
-        elem = path.join(dir, elem);
-
-        if (fs.statSync(elem).isFile()) {
-            results.push(elem);
-        } else if (rec) {
-            results = results.concat(readDirSync(elem, rec));
-        }
-    });
-
-    return results;
-}
 
 /**
  * Resolves a wildcard path and returns a list of files matches the wildcard path.
@@ -85,7 +63,7 @@ function resolveWildcardPath(wildcardPath: string): string[] {
     } else if (fs.statSync(wildcardPath).isFile()) {
         files.push(wildcardPath);
     } else {
-        files = readDirSync(wildcardPath, recursive);
+        files = sdsAccess.readDirSync(wildcardPath, recursive);
     }
 
     if (wildcard !== "") {
