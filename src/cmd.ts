@@ -197,26 +197,6 @@ async function upload(loginData: config.LoginData, files: string[]) {
     });
 }
 
-async function uploadAndRunAll(loginData: config.LoginData, folder: string, prefix: string): Promise<sdsAccess.scriptT[]> {
-    return new Promise<sdsAccess.scriptT[]>((resolve, reject) => {
-        let scripts: sdsAccess.scriptT[] = [];
-        sdsAccess.getScriptsFromFolder(folder).then((_upscripts) => {
-            return sdsAccess.sdsSession(loginData, _upscripts, sdsAccess.uploadAll).then(() => {
-                return sdsAccess.getScriptsFromFolder(folder, prefix).then((_runscripts) => {
-                    return sdsAccess.sdsSession(loginData, _runscripts, sdsAccess.runAll).then((retval) => {
-                        for(let i=0; i<retval.length; i++) {
-                            scripts.push(retval[i]);
-                            console.log("script " + i + ":" + os.EOL + retval[i].output);
-                        }
-                        resolve(scripts);
-                    });
-                });
-            });
-        }).catch((reason) => {
-            reject(reason);
-        });
-    });
-}
 
 /**
  * Command for executing files
@@ -308,30 +288,6 @@ program
         }
     });
 
-/**
- * Command for upload and execute scripts from a directory.
- * @example
- * node cmd.js test <path to launch.json> <directory path> <prefix of scripts to execute>
- */
-program
-    .version('0.0.1')
-    .command('test <json> [dir...]')
-    .action(function (json: string, dir: string, filter: string) {
-        console.log('test json %s', json);
-        if (dir) {
-            console.log('test ' + dir[0]);
-            let loginData: config.LoginData = new config.LoginData();
-            loginData.loadConfigFile(json)
-            // dir[1] == name-prefix
-            let params = [dir[0], dir[1]];
-            uploadAndRunAll(loginData, dir[0], dir[1]);
-            // dir.forEach(function (dir_i) {
-            //     console.log('test ' + dir_i);
-            // });
-        } else {
-            console.log('test dir missing');
-        }
-    });
  
 program.parse(process.argv);
 
