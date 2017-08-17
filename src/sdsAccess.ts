@@ -571,7 +571,9 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
 
                     resolve([script]);
                 } else {
-                    reject();
+                    // probably script deleted on server
+                    script.conflict = true;
+                    resolve([script]);
                 }
             }).catch((reason) => {
                 reject(reason);
