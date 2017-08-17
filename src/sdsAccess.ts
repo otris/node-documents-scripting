@@ -768,48 +768,6 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
 }
 
 
-/**
- * TODO: remove this function
- * 
- * Return a list of all names of all JavaScript files in the given folder.
- * 
- * @param _path Foder
- * @param nameprefix 
- */
-export async function getScriptsFromFolder(_path: string, nameprefix?: string): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-    
-        let scripts : scriptT[] = [];
-
-        fs.readdir(_path, function (err, files) {
-            if (err) {
-                reject(err);
-            } else if (!files) {
-                reject('unexpexted error in readdir: files is empty');
-            } else {
-
-                files.map(function (file) {
-                    return path.join(_path, file);
-                }).filter(function (file) {
-                    return fs.statSync(file).isFile();
-                }).forEach(function (file) {
-                    let basename = path.basename(file);
-                    if('.js' === path.extname(file) && (!nameprefix || basename.startsWith(nameprefix))) {
-                        let s = getScript(file);
-                        if(typeof s !== 'string') {
-                            scripts.push(s);
-                        }
-                        // else ...reject(s)
-                    }
-                });
-
-                resolve(scripts);
-            }
-        });
-    });
-}
-
-
 
 
 
