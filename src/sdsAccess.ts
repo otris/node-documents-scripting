@@ -1,5 +1,4 @@
 import * as os from 'os';
-import * as fs from 'fs';
 import * as path from 'path';
 import { connect, Socket } from 'net';
 // let lastSyncHash = crypto.createHash('md5').update(data).digest("hex");
@@ -9,6 +8,7 @@ import * as config from './config';
 import { Logger } from 'node-file-log';
 
 const reduce = require('reduce-for-promises');
+const fs = require('fs-extra');
 
 
 const logger = Logger.create('node-documents-scripting');
@@ -513,7 +513,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         script.category = retval[2];
                     }
 
-                    writeFile(script.serverCode, scriptPath, true).then(() => {
+                    writeFile(script.serverCode, scriptPath).then(() => {
                         script.sourceCode = script.serverCode;
                         if(script.conflictMode) {
                             script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
@@ -678,40 +678,29 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
  * @param filename 
  * @param allowSubFolder 
  */
-export async function writeFile(data: any, filename: string, allowSubFolder = false): Promise<void> {
+export async function writeFile(data: any, filename: string): Promise<void> {
     console.log('writeFile');
 
     return new Promise<void>((resolve, reject) => {
-        let folder = path.dirname(filename);
-        if(folder) {
-            fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
-                if(error) {
-                    if(error.code === 'ENOENT' && allowSubFolder) {
-                        fs.mkdir(folder, function(error) {
-                            if(error) {
-                                reject(error);
-                            } else {
-                                console.log('created path: ' + folder);
-                                fs.writeFile(filename, data, {encoding: 'utf8'}, function(error) {
-                                    if(error) {
-                                        reject(error);
-                                    } else {
-                                        console.log('wrote file: ' +  filename);
-                                        resolve();
-                                    }
-                                });
-                            }
-                        });
-                    } else {
-                        reject(error);
-                    }
+        const folder = path.dirname(filename);
+
+        if (folder) {
+            fs.ensureDir(folder, function(error: any) {
+                if (error) {
+                    reject(error);
                 } else {
-                    console.log('wrote file: ' +  filename);
-                    resolve();
+                    fs.writeFile(filename, data, {encoding: 'utf8'}, function(error: any) {
+                        if (error) {
+                            reject(error);
+                        } else {
+                            console.log(`wrote file ${filename}`);
+                            resolve();
+                        }
+                    });
                 }
             });
         } else {
-            reject('error in filename');
+            reject(`Error in filename ${filename}`);
         }
     });
 }
@@ -727,7 +716,7 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
     let results: string[] = [];
     let list = fs.readdirSync(dir);
 
-    list.forEach(function (elem) {
+    list.forEach(function (elem: any) {
         elem = path.join(dir, elem);
 
         if (fs.statSync(elem).isFile()) {
