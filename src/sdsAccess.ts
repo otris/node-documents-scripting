@@ -415,12 +415,11 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
  * @param sdsConnection 
  * @param params Array containing all scripts to download.
  */
-export async function downloadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
-        let scripts: scriptT[] = params;
 
-        if(0 === params.length) {
+        if(0 === scripts.length) {
             resolve(returnScripts);
         } else {
             // see description of reduce in uploadAll
@@ -431,7 +430,8 @@ export async function downloadAll(sdsConnection: SDSConnection, params: scriptT[
                     return numScripts + 1;
                 }).catch((error: Error) => {
                     console.log('downloadScript -> catch ' + error.message);
-                    if(error.message !== ERROR_DECRYPT_PERMISSION) {
+                    if(error.message === ERROR_DECRYPT_PERMISSION) {
+                    } else {
                         reject(error);
                     }
                 });
