@@ -88,7 +88,8 @@ export type scriptT = {
  * For now only version is used.
  */
 export type documentsT = {
-    version: string
+    version?: string,
+    decryptionPermission?: boolean
 }
 
 
@@ -292,6 +293,21 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
     });
 }
 
+export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
+    return new Promise<documentsT[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('PartnerNet.getProperty', ['allowDecryption']).then((value) => {
+            let perm = false;
+            if('1' === value[1]) {
+                perm = true;
+            }
+            let doc: documentsT = {decryptionPermission: perm};
+            console.log('checkDecryptionPermission: ' + doc.version);
+            resolve([doc]);
+        }).catch((reason) => {
+            reject('checkDecryptionPermission failed: ' + reason);
+        });
+    });
+}
 
 /**
  * Get names of all scripts on server.
