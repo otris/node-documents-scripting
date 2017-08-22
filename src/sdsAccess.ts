@@ -224,6 +224,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
 
         }).then((value) => {
             let docVersion = value[0];
+            loginData.DocumentsVersion = docVersion;
             console.log(`Current version: ${docVersion} Required verson: ${VERSION}`);
             if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);

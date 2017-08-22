@@ -17,6 +17,7 @@ export class LoginData {
     public configFile: string;
     public getLoginData: (loginData: LoginData) => Promise<void>;
     public DocumentsVersion: string = '';
+    public lastError: string = '';
 
     public resetLoginData() {
         this.server = '';
