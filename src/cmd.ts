@@ -127,9 +127,9 @@ async function runAll(loginData: config.LoginData, files: string[], uploadScript
         // resolve file paths to scriptT-objects
         let scriptsToExecute: sdsAccess.scriptT[] = [];
         files.forEach((file) => {
-            scriptsToExecute.push({
-                name: path.parse(file).name
-            });
+            scriptsToExecute.push(
+                new sdsAccess.scriptT(path.parse(file).name, file, fs.readFileSync(file).toString())
+            );
         });
         console.log(JSON.stringify(scriptsToExecute));
 
@@ -156,11 +156,9 @@ async function upload(loginData: config.LoginData, files: string[]) {
         // resolve file paths to scriptT-objects
         files.forEach((file) => {
             if (fs.existsSync(file)) {
-                filesToUpload.push({
-                    name: path.parse(file).name,
-                    path: file,
-                    sourceCode: fs.readFileSync(file).toString()
-                });
+                filesToUpload.push(
+                    new sdsAccess.scriptT(path.parse(file).name, file, fs.readFileSync(file).toString())
+                );
             } else {
                 reject(`The file '${file}' doesn't exists.`);
             }

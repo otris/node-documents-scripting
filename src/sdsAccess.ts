@@ -20,33 +20,33 @@ const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 const ERROR_DECRYPT_PERMISSION = 'Only unencrypted or decrypted scripts can be downloaded';
 
 
-export type scriptT = {
+export class scriptT  {
     /**
      * Name of the script without extension.
      * A script is always a javascript file.
      */
-    name: string,
+    name: string;
     /**
      * If this value is set, the script is renamed after download.
      * For now only used for 'compare-script'.
      */
-    rename?: string,
-    path?: string,
+    rename?: string;
+    path?: string;
     /**
      * Source code of script.
      */
-    sourceCode?: string,
+    sourceCode?: string;
     /**
      * Output of run script.
      */
-    output?: string,
+    output?: string;
     /**
      * Encryption state.
      * true: script is encrypted on server and in VS Code
      * false: script is not encrypted on server and not encrypted in VS Code
      * decrypted: script is encrypted on server and not encrypted in VS Code
      */
-    encrypted?: string,
+    encrypted?: string;
 
     /**
      * If a script in conflict mode is uploaded, the hash value is used to
@@ -55,31 +55,44 @@ export type scriptT = {
      * If the script in conflict mode has been changed on server, it won't
      * be uploaded, instead 'conflict' will be set to true.
      */
-    conflictMode?: boolean,
+    conflictMode = true;
     /**
      * Hash value of the source code at the time of last synchronisation,
      * meaning at the time of last up- or download.
      * This value is only set if the script is in conflict mode.
      */
-    lastSyncHash?: string,
+    lastSyncHash?: string;
     /**
      * Source code of the script on server.
      * Only set, if code on server has been changed after last synchronisation.
      */
-    serverCode?: string,
+    serverCode?: string;
     /**
      * conflict is set to true, if the user tried to upload a script, but
      * the source code of the script on server has been changed since last
      * up- or download.
      */
-    conflict?: boolean,
+    conflict?: boolean;
     /**
      * forceUpload is set to true if conflict is true and the user decided
      * to upload and overwrite the script on server anyway.
      */
-    forceUpload?: boolean,
-    category?: string
-};
+    forceUpload?: boolean;
+    category?: string;
+
+    constructor(name: string, path?: string, sourceCode?: string, rename?: string) {
+        this.name = name;
+        if (path) {
+            this.path = path;
+        }
+        if (sourceCode) {
+            this.sourceCode = sourceCode;
+        }
+        if (rename) {
+            this.rename = rename;
+        }
+    }
+}
 
 
 
@@ -321,7 +334,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
         sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: scriptT[] = [];
             scriptNames.forEach(function(scriptname) {
-                let script: scriptT = {name: scriptname};
+                let script: scriptT = new scriptT(scriptname);
                 scripts.push(script);
             });
             resolve(scripts);
@@ -760,11 +773,9 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
     // resolve file paths to scriptT-objects
     filepaths.forEach((file) => {
         if (fs.existsSync(file)) {
-            scripts.push({
-                name: path.parse(file).name,
-                path: file,
-                sourceCode: fs.readFileSync(file).toString()
-            });
+            scripts.push(
+                new scriptT(path.parse(file).name, file, fs.readFileSync(file).toString())
+            );
         } else {
             throw new Error(`The file '${file}' doesn't exists.`);
         }
@@ -783,14 +794,13 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
  * @param file Scriptname, full path.
  */
 export function getScript(file: string): scriptT | string {
-    let s: scriptT;
     if(file && '.js' === path.extname(file)) {
         try {
             // todo check with fs.stat because if file looks relative readFileSync
             // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
-            let sc = fs.readFileSync(file, 'utf8');
-            let _name = path.basename(file, '.js');
-            return {name: _name, sourceCode: sc};
+            let sourceCode = fs.readFileSync(file, 'utf8');
+            let name = path.basename(file, '.js');
+            return new scriptT(name, '', sourceCode);
         } catch(err) {
             return err;
         }
