@@ -13,7 +13,8 @@ const fs = require('fs-extra');
 
 const logger = Logger.create('node-documents-scripting');
 
-const VERSION = '8034';
+const VERSION_MIN = '8034';
+const VERSION_CATEGORIES = '8041';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -78,7 +79,16 @@ export class scriptT  {
      * to upload and overwrite the script on server anyway.
      */
     forceUpload?: boolean;
+
+    /**
+     * The category of the script on server.
+     */
     category?: string;
+    /**
+     * The root folder where to add the category when script is downloaded.
+     * Meaning script ist stored in path.join(categoryRoot, category) on download.
+     */
+    categoryRoot?: string;
 
     constructor(name: string, path?: string, sourceCode?: string, rename?: string) {
         this.name = name;
@@ -107,7 +117,7 @@ export type documentsT = {
 
 
 
-export type serverOperationT = (sdsConn: SDSConnection, param: any[]) => Promise<any[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?: config.LoginData) => Promise<any[]>;
 
 
 /**
@@ -149,7 +159,7 @@ export async function sdsSession(loginData: config.LoginData, param: any[], serv
                 doLogin(loginData, sdsSocket).then((sdsConnection) => {
                     
                     // call serverOperation and then close the connection in any case
-                    serverOperation(sdsConnection, param).then((value) => {
+                    serverOperation(sdsConnection, param, loginData).then((value) => {
                         closeConnection(sdsConnection).then(() => {
                             resolve(value);
                         }).catch((reason) => {
@@ -238,11 +248,11 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
         }).then((value) => {
             let docVersion = value[0];
             loginData.DocumentsVersion = docVersion;
-            console.log(`Current version: ${docVersion} Required verson: ${VERSION}`);
+            console.log(`Current version: ${docVersion} Required verson: ${VERSION_MIN}`);
             if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);
-            } else if(Number(VERSION) > Number(docVersion)) {
-                reject(`Current version: ${docVersion} Required verson: ${VERSION}`);
+            } else if(Number(VERSION_MIN) > Number(docVersion)) {
+                reject(`Current version: ${docVersion} Required verson: ${VERSION_MIN}`);
             } else {
                 resolve(sdsConnection);
             }
@@ -407,7 +417,7 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
  * @param sdsConnection 
  * @param params Array containing all scripts to upload.
  */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
@@ -418,7 +428,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
             // in doing so every call of _uploadScript is started after
             // the previous call is finished
             return reduce(params, function(numscripts: number, _script: scriptT) {
-                return uploadScript(sdsConnection, [_script]).then((value) => {
+                return uploadScript(sdsConnection, [_script], loginData).then((value) => {
                     // this section is executed after every single _uploadScript call
                     if(0 <= value.length) {
                         let uscript = value[0];
@@ -445,16 +455,17 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[])
  * @param sdsConnection 
  * @param params Array containing all scripts to download.
  */
-export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[]): Promise<scriptT[]> {
+export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
 
         if(0 === scripts.length) {
             resolve(returnScripts);
+
         } else {
             // see description of reduce in uploadAll
             return reduce(scripts, function(numScripts: number, script: scriptT) {
-                return downloadScript(sdsConnection, [script]).then((retval) => {
+                return downloadScript(sdsConnection, [script], loginData).then((retval) => {
                     const currentScript: scriptT = retval[0];
                     returnScripts.push(currentScript);
                     return numScripts + 1;
@@ -511,7 +522,7 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
  * @param sdsConnection 
  * @param params 
  */
-export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -526,7 +537,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                 if(!retval[0] || typeof(retval[0]) != 'string') {
                     return reject('could not find ' + script.name + ' on server');
                 }
-                
+
                 if('false' === retval[1] || 'decrypted' === retval[1]) {
                     script.serverCode = ensureNoBOM(retval[0]);
                     script.encrypted = retval[1];
@@ -536,12 +547,15 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         // rename script on download, only used for compare by now
                         scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                     } else {
-                        scriptPath = path.join(script.path? script.path: '', script.name + ".js");
+                        // category as folder
+                        if(checkVersion(loginData, VERSION_CATEGORIES) && script.categoryRoot && 0 < script.categoryRoot.length && retval[2] && 0 < retval[2].length) {
+                            script.category = retval[2];
+                            scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
+                        } else {
+                            scriptPath = path.join(script.path? script.path: '', script.name + ".js");
+                        }
                     }
 
-                    if(retval[2] && typeof(retval[2] === 'string')) {
-                        script.category = retval[2];
-                    }
 
                     writeFile(script.serverCode, scriptPath).then(() => {
                         script.sourceCode = script.serverCode;
@@ -612,13 +626,16 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
     });
 }
 
+
+
+
 /**
  * Upload Script.
  * 
  * @param sdsConnection 
  * @param params 
  */
-export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -630,21 +647,23 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
                 script.sourceCode = ensureNoBOM(script.sourceCode);
                 checkForConflict(sdsConnection, [script]).then((value) => {
-                    const retscript = value[0];
+                    const retscript: scriptT = value[0];
 
-                    if(!retscript.conflict) {
+                    if(!retscript.conflict && script.sourceCode) {
+
+                        // check version for category
+                        let paramCategory = '';
+                        if(checkVersion(loginData, VERSION_CATEGORIES) && script.category) {
+                            paramCategory = script.category;
+                        }
 
                         // create parameter for uploadScript call
-                        let params = [script.name,
-                                      script.sourceCode || '',
-                                      script.encrypted || 'false',
-                                      script.category || ''];
+                        let params = [script.name, script.sourceCode, script.encrypted || 'false', paramCategory];
 
+                        // call uploadScript
                         return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
-                            if(script.conflictMode) {
-                                // create hash with BOM, because server returns the source-code always with BOM
-                                // todo: source-code should be uploaded with BOM
-                               script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest("hex");
+                            if(script.conflictMode && script.sourceCode) {
+                                script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode).digest("hex");
                             }
                             console.log('uploaded: ', script.name);
                             resolve([script]);
@@ -806,6 +825,15 @@ export function getScript(file: string): scriptT | string {
         }
     } else {
         return 'only javascript files allowed';
+    }
+}
+
+
+function checkVersion(loginData: config.LoginData, version: string): boolean {
+    if(Number(loginData.DocumentsVersion) >= Number(version)) {
+        return true;
+    } else {
+        return false;
     }
 }
 
