@@ -137,6 +137,8 @@ export async function sdsSession(loginData: config.LoginData, param: any[], serv
         if(!loginData) {
             return reject('login data missing');
         }
+        loginData.lastError = '';
+        loginData.lastWarning = '';
 
         // first try to get the login data
         loginData.ensureLoginData().then(() => {
@@ -548,7 +550,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                     } else {
                         // category as folder
-                        if(checkVersion(loginData, VERSION_CATEGORIES) && script.categoryRoot && 0 < script.categoryRoot.length && retval[2] && 0 < retval[2].length) {
+                        if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(loginData, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
                             script.category = retval[2];
                             scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
                         } else {
@@ -653,8 +655,10 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
                         // check version for category
                         let paramCategory = '';
-                        if(checkVersion(loginData, VERSION_CATEGORIES) && script.category) {
-                            paramCategory = script.category;
+                        if(script.category) {
+                            if(checkVersion(loginData, VERSION_CATEGORIES)) {
+                                paramCategory = script.category;
+                            }
                         }
 
                         // create parameter for uploadScript call
@@ -833,6 +837,9 @@ function checkVersion(loginData: config.LoginData, version: string): boolean {
     if(Number(loginData.DocumentsVersion) >= Number(version)) {
         return true;
     } else {
+        if(VERSION_CATEGORIES == version) {
+            loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
+        }
         return false;
     }
 }
