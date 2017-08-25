@@ -137,8 +137,6 @@ export async function sdsSession(loginData: config.LoginData, param: any[], serv
         if(!loginData) {
             return reject('login data missing');
         }
-        loginData.lastError = '';
-        loginData.lastWarning = '';
 
         // first try to get the login data
         loginData.ensureLoginData().then(() => {
