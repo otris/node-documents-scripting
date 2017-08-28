@@ -595,8 +595,7 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
         } else {
             let script: scriptT = params[0];
 
-            // todo: why script.lastSyncHash? why not using empty string if it's undefined?
-            if(!script.conflictMode || script.forceUpload || !script.lastSyncHash) {
+            if(!script.conflictMode || script.forceUpload) {
                 return resolve([script]);
             }
 
