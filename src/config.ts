@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-const stripJsonComments = require('strip-json-comments');
 
 
 
@@ -35,43 +34,12 @@ export class LoginData {
         return true;
     }
 
-    public loadConfigFile(configFile: string) : boolean {
-        console.log('loadConfigFile');
-        this.configFile = configFile;
-
-        try {
-            const jsonContent = fs.readFileSync(this.configFile, 'utf8');
-            const jsonObject = JSON.parse(stripJsonComments(jsonContent));
-            const configurations = jsonObject.configurations;
-
-            if(configurations) {
-                configurations.forEach((config: any) => {
-                    if (config.type === 'janus' && config.request === 'launch') {
-                        this.server = config.host;
-                        this.port = config.applicationPort;
-                        this.principal = config.principal;
-                        this.username = config.username;
-                        if(this.askForPasswordStr === config.password) {
-                            this.askForPassword = true;
-                        }
-                        this.password = config.password;
-                        this.sdsTimeout = config.sdsTimeout;
-                    }
-                });
-            }
-        } catch (err) {
-            return false;
-        }
-
-        return true;
-    }
 
     async ensureLoginData(): Promise<void> {
         console.log(`ensureLoginData start: ask ${this.askForPassword} askStr ${this.askForPasswordStr} pw ${this.password}`);
         return new Promise<void>((resolve, reject) => {
 
-            const askpw = (this.askForPassword && (this.askForPasswordStr === this.password));
-            if(this.checkLoginData() && !askpw) {
+            if(this.checkLoginData() && !(this.askForPassword && (this.askForPasswordStr === this.password))) {
                 resolve();
 
             } else if(this.getLoginData) {

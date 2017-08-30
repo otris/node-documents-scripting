@@ -9,7 +9,8 @@ import * as fs from 'fs';
 export let cmdvar = 0;
 
 // command options
-var program = require('commander');
+const program = require('commander');
+const stripJsonComments = require('strip-json-comments');
 
 
 // set up sdsAccess
@@ -174,6 +175,37 @@ async function upload(loginData: config.LoginData, files: string[]) {
 }
 
 
+export function loadConfigFile(login: config.LoginData, configFile: string) : boolean {
+    console.log('loadConfigFile');
+    login.configFile = configFile;
+
+    try {
+        const jsonContent = fs.readFileSync(login.configFile, 'utf8');
+        const jsonObject = JSON.parse(stripJsonComments(jsonContent));
+        const configurations = jsonObject.configurations;
+
+        if(configurations) {
+            configurations.forEach((config: any) => {
+                if (config.type === 'janus' && config.request === 'launch') {
+                    login.server = config.host;
+                    login.port = config.applicationPort;
+                    login.principal = config.principal;
+                    login.username = config.username;
+                    login.password = config.password;
+                    login.sdsTimeout = config.sdsTimeout;
+                }
+            });
+        }
+    } catch (err) {
+        return false;
+    }
+
+    return true;
+}
+
+
+
+
 /**
  * Command for executing files
  * @example
@@ -207,7 +239,7 @@ program
 
             // Execute the file(s)
             let loginData: config.LoginData = new config.LoginData();
-            if (!loginData.loadConfigFile(json)) {
+            if (!loadConfigFile(loginData, json)) {
                 throw new Error("Unable to load the config file.");
             }
 
@@ -254,7 +286,7 @@ program
 
             // upload the files
             let loginData: config.LoginData = new config.LoginData();
-            if (!loginData.loadConfigFile(json)) {
+            if (!loadConfigFile(loginData, json)) {
                 throw new Error("Unable to load the config file.");
             }
 
