@@ -50,6 +50,11 @@ export class scriptT  {
     encrypted?: string;
 
     /**
+     * Internal flag.
+     */
+    allowDownloadEncrypted = false;
+
+    /**
      * If a script in conflict mode is uploaded, the hash value is used to
      * check, if the script (the source code of the script) on server has
      * changed since last up- or download.
@@ -538,7 +543,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     return reject('could not find ' + script.name + ' on server');
                 }
 
-                if('false' === retval[1] || 'decrypted' === retval[1]) {
+                if('false' === retval[1] || 'decrypted' === retval[1] || script.allowDownloadEncrypted) {
                     script.serverCode = ensureNoBOM(retval[0]);
                     script.encrypted = retval[1];
 
