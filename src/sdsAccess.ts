@@ -556,12 +556,9 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         }
                     }
 
-
-                    writeFile(script.serverCode, scriptPath).then(() => {
-                        script.sourceCode = script.serverCode;
-                        if(script.conflictMode) {
-                            script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
-                        }
+                    // todo: call from outside
+                    // script.path = scriptPath;
+                    saveScript(script, scriptPath).then(() => {
                         resolve([script]);
                     }).catch((reason) => {
                         reject(reason);
@@ -577,6 +574,19 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 }
 
 
+export function saveScript(script: scriptT, scriptPath: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        writeFile(script.serverCode, scriptPath).then(() => {
+            script.sourceCode = script.serverCode;
+            if(script.conflictMode) {
+                script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
+            }
+            resolve();
+        }).catch((reason) => {
+            reject(reason);
+        });
+    });
+}
 
 /**
  * If the given script can be uploaded, an empty list is returned.
