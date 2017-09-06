@@ -543,7 +543,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     return reject('could not find ' + script.name + ' on server');
                 }
 
-                if('false' === retval[1] || 'decrypted' === retval[1] || script.allowDownloadEncrypted) {
+                if('false' === retval[1] || 'decrypted' === retval[1] || ('true' === retval[1] && script.allowDownloadEncrypted)) {
                     script.serverCode = ensureNoBOM(retval[0]);
                     script.encrypted = retval[1];
 
