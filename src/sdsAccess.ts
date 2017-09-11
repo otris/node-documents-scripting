@@ -136,7 +136,7 @@ export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?
  * @param serverOperation the operation to be called on server, should be one of the
  * functions that are implemented below
  */
-export async function sdsSession(loginData: config.LoginData, param: any[], serverOperation: serverOperationT): Promise<any[]> {
+export async function serverSession(loginData: config.LoginData, param: any[], serverOperation: serverOperationT): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
 
         if(!loginData) {

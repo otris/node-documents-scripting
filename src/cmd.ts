@@ -95,7 +95,7 @@ async function run(loginData: config.LoginData, file: string, uploadScript: bool
             name: path.parse(file).name
         };
 
-        return sdsAccess.sdsSession(loginData, [script], sdsAccess.runScript).then((executedScripts: sdsAccess.scriptT[]) => {
+        return sdsAccess.serverSession(loginData, [script], sdsAccess.runScript).then((executedScripts: sdsAccess.scriptT[]) => {
             // the array can only contain 1 element
             if (executedScripts.length > 1) {
                 reject(`received more then 1 script after run script: ${executedScripts.length}`);
@@ -135,7 +135,7 @@ async function runAll(loginData: config.LoginData, files: string[], uploadScript
         console.log(JSON.stringify(scriptsToExecute));
 
         // Execute the scripts
-        return sdsAccess.sdsSession(loginData, scriptsToExecute, sdsAccess.runAll).then((executedScripts) => {
+        return sdsAccess.serverSession(loginData, scriptsToExecute, sdsAccess.runAll).then((executedScripts) => {
             executedScripts.forEach((script: sdsAccess.scriptT) => {
                 console.log(`\nExecuted script '${script.name}':\n${script.output}`);
             });
@@ -166,7 +166,7 @@ async function upload(loginData: config.LoginData, files: string[]) {
         });
 
         // upload the scripts
-        return sdsAccess.sdsSession(loginData, filesToUpload, sdsAccess.uploadAll).then(() => {
+        return sdsAccess.serverSession(loginData, filesToUpload, sdsAccess.uploadAll).then(() => {
             resolve();
         }).catch((reason) => {
             reject(reason);
