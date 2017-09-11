@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as config from './config';
 import { SDSConnection } from 'node-sds';
-import * as sdsAccess from './sdsAccess';
+import * as sdsAccess from './serverOperations';
 import * as path from 'path';
 import * as fs from 'fs';
 

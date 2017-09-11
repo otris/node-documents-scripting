@@ -18,6 +18,6 @@
         "src/main.ts",
         "src/cmd.ts",
         "src/config.ts",
-        "src/sdsAccess.ts"
+        "src/serverOperations.ts"
     ]
 }

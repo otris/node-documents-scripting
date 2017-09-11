@@ -1,3 +1,3 @@
 // export * from './cmd';
-export * from './sdsAccess';
+export * from './serverOperations';
 export * from './config';
