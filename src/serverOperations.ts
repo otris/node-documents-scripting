@@ -235,7 +235,7 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
         sdsConnection.connect('node-documents-scripting').then(() => {
             console.log('connect successful');
             let username = loginData.username;
-            return sdsConnection.changeUser(username, getJanusPassword(loginData.password));
+            return sdsConnection.changeUser(username, loginData.password);
 
         }).then(userId => {
             loginData.userId = userId;

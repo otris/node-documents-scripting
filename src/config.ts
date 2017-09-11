@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { Hash } from 'node-sds';
 
 
 
@@ -8,7 +9,7 @@ export class ConnectionInformation {
     public port: number = 0;
     public principal: string = '';
     public username: string = '';
-    public password: string = '';
+    public password: Hash | '';
     public askForPassword: boolean = false;
     public userId: number;
     public sdsTimeout: number;
@@ -25,7 +26,6 @@ export class ConnectionInformation {
     }
 
     public checkLoginData(): boolean {
-        console.log('checkLoginData');
         if ('' === this.server || 0  === this.port || '' === this.principal || '' === this.username) {
             return false;
         }
