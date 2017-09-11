@@ -2,7 +2,7 @@ import * as fs from 'fs';
 
 
 
-export class LoginData {
+export class ConnectionInformation {
 
     public server: string = '';
     public port: number = 0;
@@ -14,8 +14,7 @@ export class LoginData {
     public userId: number;
     public sdsTimeout: number;
     public configFile: string;
-    public getLoginData: (loginData: LoginData) => Promise<void>;
-    public DocumentsVersion: string = '';
+    public documentsVersion: string = '';
     public lastError: string = '';
     public lastWarning: string = '';
 
@@ -28,41 +27,14 @@ export class LoginData {
 
     public checkLoginData(): boolean {
         console.log('checkLoginData');
-        if('' === this.server || 0  === this.port || '' === this.principal || '' === this.username) {
+        if ('' === this.server || 0  === this.port || '' === this.principal || '' === this.username) {
             return false;
         }
         return true;
     }
 
 
-    async ensureLoginData(): Promise<void> {
-        console.log(`ensureLoginData start: ask ${this.askForPassword} askStr ${this.askForPasswordStr} pw ${this.password}`);
-        return new Promise<void>((resolve, reject) => {
-
-            if(this.checkLoginData() && !(this.askForPassword && (this.askForPasswordStr === this.password))) {
-                resolve();
-
-            } else if(this.getLoginData) {
-
-                // is this ok? maybe change to callback parameter...
-                this.getLoginData(this).then(() => {
-
-                    if(this.checkLoginData() && (this.askForPasswordStr !== this.password)) {
-                        resolve();
-                    } else {
-                        reject('getting login data failed');
-                    }
-                }).catch((reason) => {
-                    reject(reason);
-                });
-            } else {
-                reject();
-            }
-        });
-    }
-
-
-    dispose() {
+    public dispose() {
         //
     }
 

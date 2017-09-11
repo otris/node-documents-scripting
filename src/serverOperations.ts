@@ -122,7 +122,7 @@ export type documentsT = {
 
 
 
-export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?: config.LoginData) => Promise<any[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?: config.ConnectionInformation) => Promise<any[]>;
 
 
 /**
@@ -136,7 +136,7 @@ export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?
  * @param serverOperation the operation to be called on server, should be one of the
  * functions that are implemented below
  */
-export async function serverSession(loginData: config.LoginData, param: any[], serverOperation: serverOperationT): Promise<any[]> {
+export async function serverSession(loginData: config.ConnectionInformation, param: any[], serverOperation: serverOperationT): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
 
         if(!loginData) {
@@ -144,7 +144,7 @@ export async function serverSession(loginData: config.LoginData, param: any[], s
         }
 
         // first try to get the login data
-        loginData.ensureLoginData().then(() => {
+        if (loginData.checkLoginData()) {
             console.log('ensureLoginData successful');
 
             let onConnect: boolean = false;
@@ -213,9 +213,9 @@ export async function serverSession(loginData: config.LoginData, param: any[], s
                 }
             });
 
-        }).catch((reason) => {
-            reject(reason);
-        });
+        } else {
+            reject(`Login information missing`);
+        }
     });
 }
 
@@ -227,7 +227,7 @@ export async function serverSession(loginData: config.LoginData, param: any[], s
  * @param loginData 
  * @param sdsSocket 
  */
-async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<SDSConnection> {
+async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socket): Promise<SDSConnection> {
     return new Promise<SDSConnection>((resolve, reject) => {
         let sdsConnection = new SDSConnection(sdsSocket);
         sdsConnection.timeout = loginData.sdsTimeout? loginData.sdsTimeout: SDS_DEFAULT_TIMEOUT;
@@ -252,7 +252,7 @@ async function doLogin(loginData: config.LoginData, sdsSocket: Socket): Promise<
 
         }).then((value) => {
             let docVersion = value[0];
-            loginData.DocumentsVersion = docVersion;
+            loginData.documentsVersion = docVersion;
             console.log(`Current version: ${docVersion} Required verson: ${VERSION_MIN}`);
             if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);
@@ -422,7 +422,7 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
  * @param sdsConnection 
  * @param params Array containing all scripts to upload.
  */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
@@ -460,7 +460,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
  * @param sdsConnection 
  * @param params Array containing all scripts to download.
  */
-export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
+export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
 
@@ -527,7 +527,7 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
  * @param sdsConnection 
  * @param params 
  */
-export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
+export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -649,7 +649,7 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
  * @param sdsConnection 
  * @param params 
  */
-export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.LoginData): Promise<scriptT[]> {
+export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -845,8 +845,8 @@ export function getScript(file: string): scriptT | string {
 }
 
 
-function checkVersion(loginData: config.LoginData, version: string): boolean {
-    if(Number(loginData.DocumentsVersion) >= Number(version)) {
+function checkVersion(loginData: config.ConnectionInformation, version: string): boolean {
+    if(Number(loginData.documentsVersion) >= Number(version)) {
         return true;
     } else {
         if(VERSION_CATEGORIES == version) {

@@ -84,7 +84,7 @@ function resolveWildcardPath(wildcardPath: string): string[] {
  * @param [uploadScript] - Specifies whether to upload the script before running
  * @returns The output of the script
  */
-async function run(loginData: config.LoginData, file: string, uploadScript: boolean = false): Promise<string> {
+async function run(loginData: config.ConnectionInformation, file: string, uploadScript: boolean = false): Promise<string> {
     return new Promise<string>(async (resolve, reject) => {
         if (uploadScript) {
             await upload(loginData, [file]);
@@ -119,7 +119,7 @@ async function run(loginData: config.LoginData, file: string, uploadScript: bool
  * @param files - File paths or the file names to run
  * @param [uploadScript] - Specifies whether to upload the script before running
  */
-async function runAll(loginData: config.LoginData, files: string[], uploadScripts: boolean = false): Promise<sdsAccess.scriptT[]> {
+async function runAll(loginData: config.ConnectionInformation, files: string[], uploadScripts: boolean = false): Promise<sdsAccess.scriptT[]> {
     return new Promise<sdsAccess.scriptT[]>(async (resolve, reject) => {
         if (uploadScripts) {
             await upload(loginData, files);
@@ -150,7 +150,7 @@ async function runAll(loginData: config.LoginData, files: string[], uploadScript
  * @param loginData - Login data for authentication with the DOCUMENTS-server
  * @param files - Array of locale file paths to upload
  */
-async function upload(loginData: config.LoginData, files: string[]) {
+async function upload(loginData: config.ConnectionInformation, files: string[]) {
     return new Promise<void>((resolve, reject) => {
         let filesToUpload: sdsAccess.scriptT[] = [];
 
@@ -175,7 +175,7 @@ async function upload(loginData: config.LoginData, files: string[]) {
 }
 
 
-export function loadConfigFile(login: config.LoginData, configFile: string) : boolean {
+export function loadConfigFile(login: config.ConnectionInformation, configFile: string) : boolean {
     console.log('loadConfigFile');
     login.configFile = configFile;
 
@@ -238,7 +238,7 @@ program
             let filesToRun = resolveWildcardPath(wildcardPath);
 
             // Execute the file(s)
-            let loginData: config.LoginData = new config.LoginData();
+            let loginData: config.ConnectionInformation = new config.ConnectionInformation();
             if (!loadConfigFile(loginData, json)) {
                 throw new Error("Unable to load the config file.");
             }
@@ -285,7 +285,7 @@ program
             let filesToUpload = resolveWildcardPath(wildcardPath);
 
             // upload the files
-            let loginData: config.LoginData = new config.LoginData();
+            let loginData: config.ConnectionInformation = new config.ConnectionInformation();
             if (!loadConfigFile(loginData, json)) {
                 throw new Error("Unable to load the config file.");
             }
