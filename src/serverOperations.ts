@@ -344,13 +344,34 @@ export async function checkDecryptionPermission(sdsConnection: SDSConnection, pa
  * @param sdsConnection 
  * @param params 
  */
-export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function getScriptsFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: scriptT[] = [];
             scriptNames.forEach(function(scriptname) {
                 let script: scriptT = new scriptT(scriptname);
                 scripts.push(script);
+            });
+            resolve(scripts);
+        }).catch((reason) => {
+            reject('getScriptNamesFromServer failed: ' + reason);
+        });
+    });
+}
+
+
+/**
+ * Get names of all scripts on server.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
+            let scripts: string[] = [];
+            scriptNames.forEach(function(scriptname) {
+                scripts.push(scriptname);
             });
             resolve(scripts);
         }).catch((reason) => {
