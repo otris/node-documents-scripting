@@ -381,6 +381,42 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 }
 
 
+    
+
+
+
+/**
+ * Get all filetype names
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+export async function getFiletypeNames(sdsConnection: SDSConnection): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('DlcFile.getFiletypeNames', []).then((filetypeNames) => {
+            resolve(filetypeNames);
+        }).catch((reason) => {
+            reject('getFieldNames failed: ' + reason);
+        });
+    });
+}
+
+/**
+ * Get fieldnames of a filetype
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+export async function getFieldNames(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('DlcFile.getFieldNames', params).then((fieldNames) => {
+            resolve(fieldNames);
+        }).catch((reason) => {
+            reject('getFieldNames failed: ' + reason);
+        });
+    });
+}
+
 
 export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
