@@ -391,10 +391,10 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
  * @param sdsConnection 
  * @param params 
  */
-export async function getFiletypeNames(sdsConnection: SDSConnection): Promise<string[]> {
+export async function getFileTypeNames(sdsConnection: SDSConnection): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('DlcFile.getFiletypeNames', []).then((filetypeNames) => {
-            resolve(filetypeNames);
+        sdsConnection.callClassOperation('DlcFile.getFileTypeNames', []).then((fileTypeNames) => {
+            resolve(fileTypeNames);
         }).catch((reason) => {
             reject('getFieldNames failed: ' + reason);
         });
