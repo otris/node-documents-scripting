@@ -386,15 +386,35 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 /**
- * Get all filetype names
+ * Get fieldnames of a filetype and create
+ * interface declaration for TypeScript
+ * definition file.
  * 
  * @param sdsConnection 
- * @param params 
+ * @param params the file type
+ *
+ * @return string containing the interface declaration for the file type
  */
-export async function getFileTypeNames(sdsConnection: SDSConnection): Promise<string[]> {
+export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
-            resolve(fileTypeNames);
+        if (!params || 0 >= params.length) {
+            return reject('filetype name missing');
+        } else if(0 >= params[0].length) {
+            return resolve (['']);
+        }
+        const fileTypeName = params[0];
+        const type = `any`;
+        sdsConnection.callClassOperation('IDlcFileType.getFieldNames', [fileTypeName]).then((fieldNames) => {
+            let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
+            fieldNames.forEach(function(fieldName){
+                if(fieldName.length > 0) {
+                    // TODO get type
+                    output += `\t${fieldName}?: ${type};` + os.EOL;
+                }
+            });
+            output += `}` + os.EOL;
+            output += os.EOL;
+            resolve([output]);
         }).catch((reason) => {
             reject('getFieldNames failed: ' + reason);
         });
@@ -402,20 +422,44 @@ export async function getFileTypeNames(sdsConnection: SDSConnection): Promise<st
 }
 
 /**
- * Get fieldnames of a filetype
+ * Get fieldnames of all file types and create a string that contains the
+ * TypeScript definition file content for all file types
  * 
  * @param sdsConnection 
- * @param params 
+ * @param params empty
  */
-export async function getFieldNames(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+export async function getFileTypesTSD(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('IDlcFileType.getFieldNames', params).then((fieldNames) => {
-            resolve(fieldNames);
+        let output = '';
+        let fileTypeMappings = '';
+        sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
+            return reduce(fileTypeNames, function(numFileTypes: number, fileTypeName: string) {
+                return getFileTypeInterface(sdsConnection, [fileTypeName]).then((ftInterface) => {
+                    output += ftInterface;
+                    if (fileTypeName.length > 0) {
+                        fileTypeMappings += `\t"${fileTypeName}": ${fileTypeName};` + os.EOL;
+                    }
+                    return numFileTypes + 1;
+                });
+            }, 0).then((numFileTypes: number) => {
+                if (output.length > 0) {
+                    let fileTypeMapper = 'interface FileTypeMapper {' + os.EOL;
+                    fileTypeMapper += fileTypeMappings;
+                    fileTypeMapper += `}` + os.EOL;
+                    fileTypeMapper += os.EOL;
+                    output += fileTypeMapper;
+                }
+                resolve([output]);
+            }).catch((error: any) => {
+                reject(error);
+            });
         }).catch((reason) => {
             reject('getFieldNames failed: ' + reason);
         });
     });
 }
+
+
 
 
 export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
