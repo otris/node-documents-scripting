@@ -577,10 +577,7 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
                     return numScripts + 1;
                 }).catch((error: Error) => {
                     console.log('downloadScript -> catch ' + error.message);
-                    if(error.message === ERROR_DECRYPT_PERMISSION) {
-                    } else {
-                        reject(error);
-                    }
+                    return numScripts;
                 });
             }, 0).then((numScripts: number) => {
                 resolve(returnScripts);
