@@ -9,7 +9,7 @@ export class ConnectionInformation {
     public port: number = 0;
     public principal: string = '';
     public username: string = '';
-    public password: Hash | '';
+    public password: Hash | '' | undefined;
     public askForPassword: boolean = false;
     public userId: number;
     public sdsTimeout: number;
