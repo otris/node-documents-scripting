@@ -407,12 +407,18 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
         const type = `any`;
         sdsConnection.callClassOperation('IDlcFileType.getFieldNames', [fileTypeName]).then((fieldNames) => {
             let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
+            let fieldParams = '';
             fieldNames.forEach(function(fieldName){
                 if(fieldName.length > 0) {
                     // TODO get type
                     output += `\t${fieldName}?: ${type};` + os.EOL;
+                    fieldParams += `'${fieldName}' | `;
                 }
             });
+            // remove last ' |'
+            fieldParams = fieldParams.substr(0, fieldParams.length - 3);
+            output += `\tsetFieldValue(fieldName: ${fieldParams}, value: any): boolean;` + os.EOL;
+            output += `\tgetFieldValue(fieldName: ${fieldParams}): any;` + os.EOL;
             output += `}` + os.EOL;
             output += os.EOL;
             resolve([output]);
