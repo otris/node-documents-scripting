@@ -709,39 +709,50 @@ export function saveScript(script: scriptT, scriptPath: string): Promise<void> {
  */
 export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
+
         if(0 === params.length) {
-            resolve([]);
+            return resolve([]);
+        }
 
-        } else {
-            let script: scriptT = params[0];
+        let script: scriptT = params[0];
 
-            if(!script.conflictMode || script.forceUpload) {
+        if(!script.conflictMode || script.forceUpload) {
+            return resolve([script]);
+        }
+
+        sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+
+            if(!value || value.length < 2 || typeof(value[0]) !== 'string') {
+                // probably script deleted on server
+                script.conflict = true;
                 return resolve([script]);
             }
 
-            sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
-                if(value && value.length >= 2 && typeof(value[0]) === 'string') {
-                    const serverCode = ensureNoBOM(value[0]);
+            if(value && value.length >= 2 && 'true' === value[1]) {
+                // script encrypted on server and no decryption pem available
+                script.conflict = true;
+                script.encrypted = value[1];
+                return resolve([script]);
+            }
 
-                    // update conflict state
-                    let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
-                    if(script.lastSyncHash !== serverHash) {
-                        // only set server code if it's defferent from local code
-                        script.serverCode = serverCode;
-                        script.conflict = true;
-                        console.log('checkForConflict: script changed on server');
-                    }
+            // get hash value from server script code
+            const serverCode = ensureNoBOM(value[0]);
+            let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
+            
+            // compare hash value
+            if(script.lastSyncHash !== serverHash) {
+                // server code has been changed
+                script.serverCode = serverCode;
+                script.conflict = true;
+                return resolve([script]);
+            }
 
-                    resolve([script]);
-                } else {
-                    // probably script deleted on server
-                    script.conflict = true;
-                    resolve([script]);
-                }
-            }).catch((reason) => {
-                reject(reason);
-            });
-        }
+            // script has not changed on server
+            return resolve([script]);
+            
+        }).catch((reason) => {
+            reject(reason);
+        });
     });
 }
 
@@ -760,7 +771,6 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             resolve([]);
 
         } else {
-
             let script: scriptT = params[0];
             if(script.sourceCode) {
 
