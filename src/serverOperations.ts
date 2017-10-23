@@ -21,6 +21,12 @@ const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 const ERROR_DECRYPT_PERMISSION = 'Only unencrypted or decrypted scripts can be downloaded';
 
 
+export type scriptParameter = {
+    name: string,
+    type: string,
+    value: string
+}
+
 export class scriptT  {
     /**
      * Name of the script without extension.
@@ -94,6 +100,8 @@ export class scriptT  {
      * Meaning script ist stored in path.join(categoryRoot, category) on download.
      */
     categoryRoot?: string;
+
+    parameters?: scriptParameter[];
 
     constructor(name: string, path?: string, sourceCode?: string, rename?: string) {
         this.name = name;
@@ -382,6 +390,21 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 }
 
 
+/**
+ * Set script parameters
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        sdsConnection.callClassOperation('PortalScript.setScriptParameters', params).then(() => {
+            resolve();
+        }).catch((reason) => {
+            reject('setScriptParameters failed: ' + reason);
+        });
+    });
+}
     
 
 
@@ -767,48 +790,77 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
  */
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
+
+        // check parameters
         if(0 === params.length) {
-            resolve([]);
-
-        } else {
-            let script: scriptT = params[0];
-            if(script.sourceCode) {
-
-                script.sourceCode = ensureNoBOM(script.sourceCode);
-                checkForConflict(sdsConnection, [script]).then((value) => {
-                    const retscript: scriptT = value[0];
-
-                    if(!retscript.conflict && script.sourceCode) {
-
-                        // check version for category
-                        let paramCategory = '';
-                        if(script.category) {
-                            if(checkVersion(loginData, VERSION_CATEGORIES)) {
-                                paramCategory = script.category;
-                            }
-                        }
-
-                        // create parameter for uploadScript call
-                        let params = [script.name, script.sourceCode, script.encrypted || 'false', paramCategory];
-
-                        // call uploadScript
-                        return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
-                            if(script.conflictMode && script.sourceCode) {
-                                script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode).digest("hex");
-                            }
-                            console.log('uploaded: ', script.name);
-                            resolve([script]);
-                        });
-                    } else {
-                        resolve([retscript]);
-                    }
-                }).catch((reason) => {
-                    reject(reason);
-                });
-            } else  {
-                reject('scriptname or sourcecode missing in uploadScript');
-            }
+            return resolve([]);
         }
+
+        let script: scriptT = params[0];
+        script.sourceCode = ensureNoBOM(script.sourceCode);
+        
+        checkForConflict(sdsConnection, [script]).then((value) => {
+
+            // return if conflict
+            const retscript: scriptT = value[0];
+            if (retscript.conflict) {
+                return resolve([retscript]);
+            }
+
+            // do some checks
+            if(!script.sourceCode) {
+                return reject('Source code missing in parameter in uploadScript()');
+            }
+            if(!script.encrypted) {
+                script.encrypted = 'false';
+            }
+
+            // check version for category
+            let paramCategory = '';
+            if(script.category) {
+                if(checkVersion(loginData, VERSION_CATEGORIES)) {
+                    paramCategory = script.category;
+                }
+            }
+
+            // create parameters for uploadScript call
+            let params = [script.name, script.sourceCode, script.encrypted, paramCategory];
+
+            // call uploadScript
+            return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
+
+                // set hash value
+                if(script.conflictMode && script.sourceCode) {
+                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode).digest("hex");
+                }
+
+                // set parameters
+
+                if (!script.parameters || script.parameters.length <= 0) {
+                    return resolve([script]);
+                }
+
+                let scriptParameters: string[] = [script.name];
+                script.parameters.forEach((sparam) => {
+                    scriptParameters.push(sparam.name);
+                    scriptParameters.push(sparam.type);
+                    scriptParameters.push(sparam.value);
+                });
+
+                // call setScriptParameters
+                setScriptParameters(sdsConnection, scriptParameters).then(() => {
+                    console.log(`${script.name} uploaded and parameters set`);
+                    resolve([script]);
+                }).catch((reason) => {
+                    console.log(`${script.name} uploaded but parameters not set`);
+                    // todo warning
+                    resolve([script]);
+                });
+            });
+
+        }).catch((reason) => {
+            reject(reason);
+        });
     });
 }
 
@@ -981,6 +1033,9 @@ function ensureBOM(sourceCode: string): string {
         return NODEJS_UTF8_BOM + sourceCode;
     }
 }
-function ensureNoBOM(sourceCode: string): string {
+function ensureNoBOM(sourceCode: string | undefined): string | undefined {
+    if (!sourceCode) {
+        return undefined;
+    }
     return sourceCode.replace(/^\ufeff/, '');
 }
