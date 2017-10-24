@@ -427,17 +427,22 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             return resolve (['']);
         }
         const fileTypeName = params[0];
-        const type = `any`;
+        let type = `any`;
         sdsConnection.callClassOperation('IDlcFileType.getFieldNames', [fileTypeName]).then((fieldNames) => {
             let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
             let fieldParams = '';
-            fieldNames.forEach(function(fieldName){
+
+            // fieldNames[0] contains error message
+            // for (let i = 1; i < fieldNames.length-1; i += 2) {
+            for (let i = 1; i < fieldNames.length; i++) {
+                const fieldName = fieldNames[i];
+                // type = fieldNames[i+1];
                 if(fieldName.length > 0) {
-                    // TODO get type
                     output += `\t${fieldName}?: ${type};` + os.EOL;
                     fieldParams += `'${fieldName}' | `;
                 }
-            });
+            }
+
             // remove last ' |'
             fieldParams = fieldParams.substr(0, fieldParams.length - 3);
             output += `\tsetFieldValue(fieldName: ${fieldParams}, value: any): boolean;` + os.EOL;
@@ -463,22 +468,46 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
         let output = '';
         let fileTypeMappings = '';
         sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
+
+            // some checks
+            if (!fileTypeNames || fileTypeNames.length <= 0) {
+                return reject('IDlcFileType.getFileTypeNames returned empty result');
+            }
+
+            // first entry contains the error message that is read in node-sds
+            fileTypeNames.splice(0,1);
+
+            // iterate over file types and get the interface with the field names
             return reduce(fileTypeNames, function(numFileTypes: number, fileTypeName: string) {
+
+                // get interface for file type 'fileTypeName'
                 return getFileTypeInterface(sdsConnection, [fileTypeName]).then((ftInterface) => {
+
+                    // add interface of file type 'fileTypeName'
                     output += ftInterface;
+
+                    // add 'fileTypeName' to file type mappings
                     if (fileTypeName.length > 0) {
                         fileTypeMappings += `\t"${fileTypeName}": ${fileTypeName};` + os.EOL;
                     }
+
+                    // count the file types, not really needed for now
                     return numFileTypes + 1;
                 });
             }, 0).then((numFileTypes: number) => {
-                if (output.length > 0) {
+                // iteration finished, all available file types inserted
+
+                // add the file type mapper
+                // but only if file types have been inserted
+                if (output.length > 0 && fileTypeMappings.length > 0) {
                     let fileTypeMapper = 'interface FileTypeMapper {' + os.EOL;
                     fileTypeMapper += fileTypeMappings;
                     fileTypeMapper += `}` + os.EOL;
                     fileTypeMapper += os.EOL;
                     output += fileTypeMapper;
                 }
+
+                // output contains the whole d.ts string now
                 resolve([output]);
             }).catch((error: any) => {
                 reject(error);
