@@ -120,18 +120,10 @@ export class scriptT  {
 
 
 
-/**
- * Used for information that is independend from scripts.
- * For now only version is used.
- */
-export type documentsT = {
-    version?: string,
-    decryptionPermission?: boolean
-}
 
 
 
-export type serverOperationT = (sdsConn: SDSConnection, param: any[], loginData?: config.ConnectionInformation) => Promise<any[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo?: config.ConnectionInformation) => Promise<any[]>;
 
 
 /**
@@ -319,29 +311,28 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
  * @param sdsConnection Set by function sdsSession
  * @param params empty
  */
-export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
-    return new Promise<documentsT[]>((resolve, reject) => {
+export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PartnerNet.getVersionNo', []).then((value) => {
-            let docVersion = value[0];
-            let doc: documentsT = {version: docVersion};
-            console.log('getDocumentsVersion: ' + doc.version);
-            resolve([doc]);
+            connInfo.documentsVersion = value[0];
+            console.log('getDocumentsVersion: ' + connInfo.documentsVersion);
+            resolve();
         }).catch((reason) => {
             reject('getDocumentsVersion failed: ' + reason);
         });
     });
 }
 
-export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[]): Promise<documentsT[]> {
-    return new Promise<documentsT[]>((resolve, reject) => {
+export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PartnerNet.getProperty', ['allowDecryption']).then((value) => {
             let perm = false;
             if('1' === value[1]) {
                 perm = true;
             }
-            let doc: documentsT = {decryptionPermission: perm};
-            console.log('checkDecryptionPermission: ' + doc.version);
-            resolve([doc]);
+            connInfo.decryptionPermission = perm;
+            console.log('checkDecryptionPermission: ' + connInfo.decryptionPermission);
+            resolve();
         }).catch((reason) => {
             reject('checkDecryptionPermission failed: ' + reason);
         });
@@ -764,8 +755,10 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         }
                     }
 
-                    // todo: call from outside
+                    // TODO
                     // script.path = scriptPath;
+                    // resolve([script]);
+                    // // call saveScript() from vscode-janus-debug
                     saveScript(script, scriptPath).then(() => {
                         resolve([script]);
                     }).catch((reason) => {

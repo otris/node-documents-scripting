@@ -15,6 +15,7 @@ export class ConnectionInformation {
     public sdsTimeout: number;
     public configFile: string;
     public documentsVersion: string = '';
+    public decryptionPermission: boolean;
     public lastError: string = '';
     public lastWarning: string = '';
 
