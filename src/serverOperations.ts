@@ -15,6 +15,7 @@ const logger = Logger.create('node-documents-scripting');
 
 const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
+const VERSION_FIELD_TYPES = '8044';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -408,6 +409,29 @@ function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Pr
     
 
 
+function convertDocumentsFieldType(documentsType: string): string {
+    switch (documentsType) {
+        case 'Checkbox':
+        case 'Bool':
+            return 'boolean';
+        case 'Numeric':
+            return 'number';
+        case 'Date':
+        case 'Timestamp':
+            return 'Date';
+        case 'String':
+        case 'Text':
+        case 'Text (Fixed Font)':
+        case 'Filing plan':
+        case 'E-Mail':
+        case 'URL':
+        case 'HTML':
+            return 'string';
+        default:
+            return 'any';
+    }
+}
+
 
 /**
  * Get fieldnames of a filetype and create
@@ -419,39 +443,61 @@ function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Pr
  *
  * @return string containing the interface declaration for the file type
  */
-export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        if (!params || 0 >= params.length) {
-            return reject('filetype name missing');
-        } else if(0 >= params[0].length) {
-            return resolve (['']);
+        
+        // check parameter
+        if (!params || 0 >= params.length || 0 >= params[0].length) {
+            return reject('wrong parameter in getFileTypeInterface');
         }
+
+        // name of file type
         const fileTypeName = params[0];
-        let type = `any`;
-        sdsConnection.callClassOperation('IDlcFileType.getFieldNames', [fileTypeName]).then((fieldNames) => {
+
+        // operation
+        let operation = 'getFieldNames';
+
+        // check version, later documents version have
+        // function that also returns the types
+        const fieldTypesVersion = checkVersion(connInfo, VERSION_FIELD_TYPES);
+
+        if (fieldTypesVersion) {
+            operation = 'getFieldNamesAndTypes';
+        }
+
+
+        // get the field names
+        sdsConnection.callClassOperation('IDlcFileType.' + operation, [fileTypeName]).then((fieldInfo) => {
+            let fieldName = '';
+            let fieldType = '';
             let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
             let fieldParams = '';
-
-            // fieldNames[0] contains error message
-            // for (let i = 1; i < fieldNames.length-1; i += 2) {
-            for (let i = 1; i < fieldNames.length; i++) {
-                const fieldName = fieldNames[i];
-                // type = fieldNames[i+1];
-                if(fieldName.length > 0) {
-                    output += `\t${fieldName}?: ${type};` + os.EOL;
-                    fieldParams += `'${fieldName}' | `;
-                }
+            const steps = fieldTypesVersion? 2 : 1;
+            const length = fieldTypesVersion? fieldInfo.length-1 : fieldInfo.length;
+            
+            // fieldNames[0] contains error message, that is read in node-sds
+            for (let i = 1; i < length; i += steps) {
+                fieldName = fieldInfo[i];
+                fieldType = fieldTypesVersion ? convertDocumentsFieldType(fieldInfo[i+1]) : 'any';
+                output += `\t${fieldName}?: ${fieldType};` + os.EOL;
+                fieldParams += `'${fieldName}' | `;
             }
 
-            // remove last ' |'
-            fieldParams = fieldParams.substr(0, fieldParams.length - 3);
-            output += `\tsetFieldValue(fieldName: ${fieldParams}, value: any): boolean;` + os.EOL;
-            output += `\tgetFieldValue(fieldName: ${fieldParams}): any;` + os.EOL;
+            if (fieldParams.length > 0) {
+                // remove last ' |' in parameters for get/setFieldValues
+                fieldParams = fieldParams.substr(0, fieldParams.length - 3);
+
+                // add functions getFieldValue and setFieldValue
+                output += `\tsetFieldValue(fieldName: ${fieldParams}, value: any): boolean;` + os.EOL;
+                output += `\tgetFieldValue(fieldName: ${fieldParams}): any;` + os.EOL;
+            }
+
             output += `}` + os.EOL;
             output += os.EOL;
+
             resolve([output]);
         }).catch((reason) => {
-            reject('getFieldNames failed: ' + reason);
+            reject('IDlcFileType.getFieldNames failed: ' + reason);
         });
     });
 }
@@ -463,7 +509,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
  * @param sdsConnection 
  * @param params empty
  */
-export async function getFileTypesTSD(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+export async function getFileTypesTSD(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         let output = '';
         let fileTypeMappings = '';
@@ -481,7 +527,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
             return reduce(fileTypeNames, function(numFileTypes: number, fileTypeName: string) {
 
                 // get interface for file type 'fileTypeName'
-                return getFileTypeInterface(sdsConnection, [fileTypeName]).then((ftInterface) => {
+                return getFileTypeInterface(sdsConnection, [fileTypeName], connInfo).then((ftInterface) => {
 
                     // add interface of file type 'fileTypeName'
                     output += ftInterface;
@@ -582,7 +628,7 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
  * @param sdsConnection 
  * @param params Array containing all scripts to upload.
  */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
@@ -593,7 +639,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
             // in doing so every call of _uploadScript is started after
             // the previous call is finished
             return reduce(params, function(numscripts: number, _script: scriptT) {
-                return uploadScript(sdsConnection, [_script], loginData).then((value) => {
+                return uploadScript(sdsConnection, [_script], connInfo).then((value) => {
                     // this section is executed after every single _uploadScript call
                     if(0 <= value.length) {
                         let uscript = value[0];
@@ -620,7 +666,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
  * @param sdsConnection 
  * @param params Array containing all scripts to download.
  */
-export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
+export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
 
@@ -630,7 +676,7 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
         } else {
             // see description of reduce in uploadAll
             return reduce(scripts, function(numScripts: number, script: scriptT) {
-                return downloadScript(sdsConnection, [script], loginData).then((retval) => {
+                return downloadScript(sdsConnection, [script], connInfo).then((retval) => {
                     const currentScript: scriptT = retval[0];
                     returnScripts.push(currentScript);
                     return numScripts + 1;
@@ -684,7 +730,7 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): P
  * @param sdsConnection 
  * @param params 
  */
-export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
+export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -710,7 +756,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
                     } else {
                         // category as folder
-                        if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(loginData, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
+                        if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
                             script.category = retval[2];
                             scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
                         } else {
@@ -863,11 +909,12 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                     script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode).digest("hex");
                 }
 
-                // set parameters
-
+                // check for parameters
                 if (!script.parameters || script.parameters.length <= 0) {
                     return resolve([script]);
                 }
+
+                // set parameters
 
                 let scriptParameters: string[] = [script.name];
                 script.parameters.forEach((sparam) => {
