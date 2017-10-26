@@ -34,7 +34,7 @@ export class scriptT  {
      * A script is always a javascript file.
      */
     name: string;
-    path?: string;
+    path: string;
     /**
      * If this value is set, the script is renamed after download.
      * For now only used for 'compare-script'.
