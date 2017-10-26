@@ -755,15 +755,9 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         }
                     }
 
-                    // TODO
-                    // script.path = scriptPath;
-                    // resolve([script]);
-                    // // call saveScript() from vscode-janus-debug
-                    saveScript(script, scriptPath).then(() => {
-                        resolve([script]);
-                    }).catch((reason) => {
-                        reject(reason);
-                    });
+                    script.path = scriptPath;
+                    resolve([script]);
+
                 } else {
                     reject(new Error(ERROR_DECRYPT_PERMISSION));
                 }
@@ -775,16 +769,24 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 }
 
 
-export function saveScript(script: scriptT, scriptPath: string): Promise<void> {
+export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-        writeFile(script.serverCode, scriptPath).then(() => {
-            script.sourceCode = script.serverCode;
-            if(script.conflictMode) {
-                script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
+        return reduce(scripts, function(numscripts: number, script: scriptT) {
+            if (!script.path) {
+                return reject('script path missing');
             }
+            return writeFileEnsureDir(script.serverCode, script.path).then(() => {
+                script.sourceCode = script.serverCode;
+                if(script.conflictMode) {
+                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
+                }
+                return numscripts + 1;
+            });
+        }, 0).then((numscripts: number) => {
+            // this section is exectuted once after all writeFileEnsureDir calls are finished
             resolve();
-        }).catch((reason) => {
-            reject(reason);
+        }).catch((error: any) => {
+            reject(error);
         });
     });
 }
@@ -979,7 +981,7 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
  * @param filename 
  * @param allowSubFolder 
  */
-export async function writeFile(data: any, filename: string): Promise<void> {
+export async function writeFileEnsureDir(data: any, filename: string): Promise<void> {
     console.log('writeFile');
 
     return new Promise<void>((resolve, reject) => {
