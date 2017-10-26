@@ -34,12 +34,12 @@ export class scriptT  {
      * A script is always a javascript file.
      */
     name: string;
+    path?: string;
     /**
      * If this value is set, the script is renamed after download.
      * For now only used for 'compare-script'.
      */
-    rename?: string;
-    path?: string;
+    comparepath?: string;
     /**
      * Source code of script.
      */
@@ -113,7 +113,7 @@ export class scriptT  {
             this.sourceCode = sourceCode;
         }
         if (rename) {
-            this.rename = rename;
+            this.comparepath = rename;
         }
     }
 }
@@ -742,9 +742,9 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     script.encrypted = retval[1];
 
                     let scriptPath;
-                    if(script.rename) {
+                    if(script.comparepath) {
                         // rename script on download, only used for compare by now
-                        scriptPath = path.join(script.path? script.path: '', script.rename + ".js");
+                        scriptPath = path.join(script.path? script.path: '', script.comparepath + ".js");
                     } else {
                         // category as folder
                         if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
