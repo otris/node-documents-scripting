@@ -104,16 +104,14 @@ export class scriptT  {
 
     parameters?: scriptParameter[];
 
-    constructor(name: string, path?: string, sourceCode?: string, rename?: string) {
+    constructor(name: string, path: string, sourceCode?: string, comparepath?: string) {
         this.name = name;
-        if (path) {
-            this.path = path;
-        }
+        this.path = path;
         if (sourceCode) {
             this.sourceCode = sourceCode;
         }
-        if (rename) {
-            this.comparepath = rename;
+        if (comparepath) {
+            this.comparepath = comparepath;
         }
     }
 }
@@ -350,12 +348,12 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
         sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: scriptT[] = [];
             scriptNames.forEach(function(scriptname) {
-                let script: scriptT = new scriptT(scriptname);
+                let script: scriptT = new scriptT(scriptname, '');
                 scripts.push(script);
             });
             resolve(scripts);
         }).catch((reason) => {
-            reject('getScriptNamesFromServer failed: ' + reason);
+            reject('getScriptsFromServer failed: ' + reason);
         });
     });
 }
@@ -1069,9 +1067,10 @@ export function getScript(file: string): scriptT | string {
         try {
             // todo check with fs.stat because if file looks relative readFileSync
             // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
-            let sourceCode = fs.readFileSync(file, 'utf8');
             let name = path.basename(file, '.js');
-            return new scriptT(name, '', sourceCode);
+            let scriptpath = path.dirname(file);
+            let sourceCode = fs.readFileSync(file, 'utf8');
+            return new scriptT(name, scriptpath, sourceCode);
         } catch(err) {
             return err;
         }
