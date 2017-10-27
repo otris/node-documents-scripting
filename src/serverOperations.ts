@@ -36,11 +36,6 @@ export class scriptT  {
     name: string;
     path: string;
     /**
-     * If this value is set, the script is renamed after download.
-     * For now only used for 'compare-script'.
-     */
-    comparepath?: string;
-    /**
      * Source code of script.
      */
     sourceCode?: string;
@@ -104,14 +99,11 @@ export class scriptT  {
 
     parameters?: scriptParameter[];
 
-    constructor(name: string, path: string, sourceCode?: string, comparepath?: string) {
+    constructor(name: string, path: string, sourceCode?: string) {
         this.name = name;
         this.path = path;
         if (sourceCode) {
             this.sourceCode = sourceCode;
-        }
-        if (comparepath) {
-            this.comparepath = comparepath;
         }
     }
 }
@@ -726,9 +718,6 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
         } else {
             let script: scriptT = params[0];
-            if(!script.path) {
-                return reject('path missing');
-            }
 
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((retval) => {
                 if(!retval[0] || typeof(retval[0]) != 'string') {
@@ -740,20 +729,14 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     script.encrypted = retval[1];
 
                     let scriptPath;
-                    if(script.comparepath) {
-                        // rename script on download, only used for compare by now
-                        scriptPath = path.join(script.path? script.path: '', script.comparepath + ".js");
-                    } else {
-                        // category as folder
-                        if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
-                            script.category = retval[2];
-                            scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
-                        } else {
-                            scriptPath = path.join(script.path? script.path: '', script.name + ".js");
-                        }
+
+                    // category as folder
+                    if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
+                        script.category = retval[2];
+                        scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
+                        script.path = scriptPath;
                     }
 
-                    script.path = scriptPath;
                     resolve([script]);
 
                 } else {
@@ -1057,27 +1040,6 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
 
 
 
-/**
- * Create script-type with name and sourceCode from file.
- * 
- * @param file Scriptname, full path.
- */
-export function getScript(file: string): scriptT | string {
-    if(file && '.js' === path.extname(file)) {
-        try {
-            // todo check with fs.stat because if file looks relative readFileSync
-            // tries to read it from C:\Program Files (x86)\Microsoft VS Code\file
-            let name = path.basename(file, '.js');
-            let scriptpath = path.dirname(file);
-            let sourceCode = fs.readFileSync(file, 'utf8');
-            return new scriptT(name, scriptpath, sourceCode);
-        } catch(err) {
-            return err;
-        }
-    } else {
-        return 'only javascript files allowed';
-    }
-}
 
 
 function checkVersion(loginData: config.ConnectionInformation, version: string): boolean {
