@@ -38,7 +38,12 @@ export class scriptT  {
     /**
      * Source code of script.
      */
-    sourceCode?: string;
+    localCode?: string;
+    /**
+     * Source code of the script on server.
+     * Only set, if code on server has been changed after last synchronisation.
+     */
+    serverCode?: string;
     /**
      * Output of run script.
      */
@@ -71,11 +76,6 @@ export class scriptT  {
      */
     lastSyncHash?: string;
     /**
-     * Source code of the script on server.
-     * Only set, if code on server has been changed after last synchronisation.
-     */
-    serverCode?: string;
-    /**
      * conflict is set to true, if the user tried to upload a script, but
      * the source code of the script on server has been changed since last
      * up- or download.
@@ -94,11 +94,11 @@ export class scriptT  {
 
     parameters?: scriptParameter[];
 
-    constructor(name: string, path: string, sourceCode?: string) {
+    constructor(name: string, path: string, localCode?: string) {
         this.name = name;
         this.path = path;
-        if (sourceCode) {
-            this.sourceCode = sourceCode;
+        if (localCode) {
+            this.localCode = localCode;
         }
     }
 }
@@ -745,7 +745,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         }
 
         let script: scriptT = params[0];
-        script.sourceCode = ensureNoBOM(script.sourceCode);
+        script.localCode = ensureNoBOM(script.localCode);
         
         checkForConflict(sdsConnection, [script]).then((value) => {
 
@@ -756,7 +756,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             }
 
             // do some checks
-            if(!script.sourceCode) {
+            if(!script.localCode) {
                 return reject('Source code missing in parameter in uploadScript()');
             }
             if(!script.encrypted) {
@@ -770,14 +770,14 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             }
 
             // create parameters for uploadScript call
-            let params = [script.name, script.sourceCode, script.encrypted, paramCategory];
+            let params = [script.name, script.localCode, script.encrypted, paramCategory];
 
             // call uploadScript
             return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
 
                 // set hash value
-                if(script.conflictMode && script.sourceCode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode).digest("hex");
+                if(script.conflictMode && script.localCode) {
+                    script.lastSyncHash = crypto.createHash('md5').update(script.localCode).digest("hex");
                 }
 
                 // check for parameters
@@ -960,9 +960,9 @@ export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
                 return reject('script path missing');
             }
             return writeFileEnsureDir(script.serverCode, script.path).then(() => {
-                script.sourceCode = script.serverCode;
+                script.localCode = script.serverCode;
                 if(script.conflictMode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
+                    script.lastSyncHash = crypto.createHash('md5').update(script.localCode || '').digest('hex');
                 }
                 return numscripts + 1;
             });
