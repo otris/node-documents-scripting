@@ -91,11 +91,6 @@ export class scriptT  {
      * The category of the script on server.
      */
     category?: string;
-    /**
-     * The root folder where to add the category when script is downloaded.
-     * Meaning script ist stored in path.join(categoryRoot, category) on download.
-     */
-    categoryRoot?: string;
 
     parameters?: scriptParameter[];
 
@@ -614,11 +609,9 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
                     let scriptPath;
 
-                    // category as folder
-                    if(script.categoryRoot && 0 < script.categoryRoot.length && checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
+                    // get category for category as folder
+                    if(checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
                         script.category = retval[2];
-                        scriptPath = path.join(script.categoryRoot, script.category, script.name + ".js");
-                        script.path = scriptPath;
                     }
 
                     resolve([script]);
@@ -772,10 +765,8 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
             // check version for category
             let paramCategory = '';
-            if(script.category) {
-                if(checkVersion(loginData, VERSION_CATEGORIES)) {
-                    paramCategory = script.category;
-                }
+            if(checkVersion(loginData, VERSION_CATEGORIES) && script.category) {
+                paramCategory = script.category;
             }
 
             // create parameters for uploadScript call
