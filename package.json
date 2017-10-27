@@ -1,6 +1,6 @@
 {
   "name": "node-documents-scripting",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "This node module provides support for creating and editing JavaScript files on a DOCUMENTS Server.",
   "repository": {
     "type": "git",
