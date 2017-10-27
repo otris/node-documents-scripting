@@ -287,6 +287,9 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 
 /**
+ * Server Operations
+ * 
+ * 
  * The following functions are the operations that can be called
  * on server using the function sdsSession.
  */
@@ -372,51 +375,13 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 }
 
 
-/**
- * Set script parameters
- * 
- * @param sdsConnection 
- * @param params 
- */
-function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.setScriptParameters', params).then(() => {
-            resolve();
-        }).catch((reason) => {
-            reject('setScriptParameters failed: ' + reason);
-        });
-    });
-}
     
 
 
-function convertDocumentsFieldType(documentsType: string): string {
-    switch (documentsType) {
-        case 'Checkbox':
-        case 'Bool':
-            return 'boolean';
-        case 'Numeric':
-            return 'number';
-        case 'Date':
-        case 'Timestamp':
-            return 'Date';
-        case 'String':
-        case 'Text':
-        case 'Text (Fixed Font)':
-        case 'Filing plan':
-        case 'E-Mail':
-        case 'URL':
-        case 'HTML':
-            return 'string';
-        default:
-            return 'any';
-    }
-}
 
 
 /**
- * Get fieldnames of a filetype and create
- * interface declaration for TypeScript
+ * Get fieldnames of a filetype and create interface declaration for TypeScript
  * definition file.
  * 
  * @param sdsConnection 
@@ -548,6 +513,26 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
 
 
 
+
+
+/**
+ * Set script parameters
+ * 
+ * @param sdsConnection 
+ * @param params 
+ */
+function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        sdsConnection.callClassOperation('PortalScript.setScriptParameters', params).then(() => {
+            resolve();
+        }).catch((reason) => {
+            reject('setScriptParameters failed: ' + reason);
+        });
+    });
+}
+
+
+
 export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
         const scriptname: string = params[0].name;
@@ -602,107 +587,6 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
 
 
 
-/**
- * Upload all scripts from given list.
- * 
- * @return Array containing all uploaded scripts, should be equal to params.
- * @param sdsConnection 
- * @param params Array containing all scripts to upload.
- */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-        let scripts: scriptT[] = [];
-
-        if(0 === params.length) {
-            resolve(scripts);
-        } else {
-            // reduce calls _uploadScript for every name in scriptNames,
-            // in doing so every call of _uploadScript is started after
-            // the previous call is finished
-            return reduce(params, function(numscripts: number, _script: scriptT) {
-                return uploadScript(sdsConnection, [_script], connInfo).then((value) => {
-                    // this section is executed after every single _uploadScript call
-                    if(0 <= value.length) {
-                        let uscript = value[0];
-                        scripts.push(uscript);
-                    }
-                    return numscripts + 1;
-                });
-            }, 0).then((numscripts: number) => {
-                // this section is exectuted once after all _uploadScript calls are finished
-                resolve(scripts);
-            }).catch((error: any) => {
-                reject(error);
-            });
-        }
-    });
-}
-
-
-
-/**
- * Download all scripts from given list.
- * 
- * @return Array containing all downloaded scripts, including the source-code.
- * @param sdsConnection 
- * @param params Array containing all scripts to download.
- */
-export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-        let returnScripts: scriptT[] = [];
-
-        if(0 === scripts.length) {
-            resolve(returnScripts);
-
-        } else {
-            // see description of reduce in uploadAll
-            return reduce(scripts, function(numScripts: number, script: scriptT) {
-                return downloadScript(sdsConnection, [script], connInfo).then((retval) => {
-                    const currentScript: scriptT = retval[0];
-                    returnScripts.push(currentScript);
-                    return numScripts + 1;
-                }).catch((error: Error) => {
-                    console.log('downloadScript -> catch ' + error.message);
-                    return numScripts;
-                });
-            }, 0).then((numScripts: number) => {
-                resolve(returnScripts);
-            }).catch((error: any) => {
-                reject(error);
-            });
-        }
-    });
-}
-
-/**
- * Execute all scripts in given list on server.
- * 
- * @return Array containing all executed scripts, including the output.
- * @param sdsConnection 
- * @param params Array containing all scripts to execute.
- */
-export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-        let scripts: scriptT[] = [];
-
-        // see description of reduce in uploadAll
-        return reduce(params, function(numScripts: number, _script: scriptT) {
-            return runScript(sdsConnection, [_script]).then((value) => {
-                let script: scriptT = value[0];
-                scripts.push(script);
-                return numScripts + 1;
-            });
-        }, 0).then((numScripts: number) => {
-            resolve(scripts);
-        }).catch((error: any) => {
-            reject(error);
-        });
-    });
-}
-
-
-
-
 
 
 /**
@@ -749,28 +633,48 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
     });
 }
 
+/**
+ * Download all scripts from given list.
+ * 
+ * @return Array containing all downloaded scripts, including the source-code.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to download.
+ */
+export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let returnScripts: scriptT[] = [];
 
-export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        return reduce(scripts, function(numscripts: number, script: scriptT) {
-            if (!script.path) {
-                return reject('script path missing');
-            }
-            return writeFileEnsureDir(script.serverCode, script.path).then(() => {
-                script.sourceCode = script.serverCode;
-                if(script.conflictMode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
-                }
-                return numscripts + 1;
+        if(0 === scripts.length) {
+            resolve(returnScripts);
+
+        } else {
+            // see description of reduce in uploadAll
+            return reduce(scripts, function(numScripts: number, script: scriptT) {
+                return downloadScript(sdsConnection, [script], connInfo).then((retval) => {
+                    const currentScript: scriptT = retval[0];
+                    returnScripts.push(currentScript);
+                    return numScripts + 1;
+                }).catch((error: Error) => {
+                    console.log('downloadScript -> catch ' + error.message);
+                    return numScripts;
+                });
+            }, 0).then((numScripts: number) => {
+                resolve(returnScripts);
+            }).catch((error: any) => {
+                reject(error);
             });
-        }, 0).then((numscripts: number) => {
-            // this section is exectuted once after all writeFileEnsureDir calls are finished
-            resolve();
-        }).catch((error: any) => {
-            reject(error);
-        });
+        }
     });
 }
+
+
+
+
+
+
+
+
+
 
 /**
  * If the given script can be uploaded, an empty list is returned.
@@ -916,6 +820,46 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
     });
 }
 
+
+
+/**
+ * Upload all scripts from given list.
+ * 
+ * @return Array containing all uploaded scripts, should be equal to params.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to upload.
+ */
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let scripts: scriptT[] = [];
+
+        if(0 === params.length) {
+            resolve(scripts);
+        } else {
+            // reduce calls _uploadScript for every name in scriptNames,
+            // in doing so every call of _uploadScript is started after
+            // the previous call is finished
+            return reduce(params, function(numscripts: number, _script: scriptT) {
+                return uploadScript(sdsConnection, [_script], connInfo).then((value) => {
+                    // this section is executed after every single _uploadScript call
+                    if(0 <= value.length) {
+                        let uscript = value[0];
+                        scripts.push(uscript);
+                    }
+                    return numscripts + 1;
+                });
+            }, 0).then((numscripts: number) => {
+                // this section is exectuted once after all _uploadScript calls are finished
+                resolve(scripts);
+            }).catch((error: any) => {
+                reject(error);
+            });
+        }
+    });
+}
+
+
+
 /**
  * Run script.
  * 
@@ -944,14 +888,42 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
 }
 
 
+/**
+ * Execute all scripts in given list on server.
+ * 
+ * @return Array containing all executed scripts, including the output.
+ * @param sdsConnection 
+ * @param params Array containing all scripts to execute.
+ */
+export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        let scripts: scriptT[] = [];
+
+        // see description of reduce in uploadAll
+        return reduce(params, function(numScripts: number, _script: scriptT) {
+            return runScript(sdsConnection, [_script]).then((value) => {
+                let script: scriptT = value[0];
+                scripts.push(script);
+                return numScripts + 1;
+            });
+        }, 0).then((numScripts: number) => {
+            resolve(scripts);
+        }).catch((error: any) => {
+            reject(error);
+        });
+    });
+}
+
 
 
 
 /**
- * Some additional helper functions.
+ * Helper functions - no server call
+ * 
+ * 
+ * The following functions are only some additional helper functions.
+ * They don't do any call on server.
  */
-
-
 
 
 
@@ -986,6 +958,29 @@ export async function writeFileEnsureDir(data: any, filename: string): Promise<v
         } else {
             reject(`Error in filename ${filename}`);
         }
+    });
+}
+
+
+export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        return reduce(scripts, function(numscripts: number, script: scriptT) {
+            if (!script.path) {
+                return reject('script path missing');
+            }
+            return writeFileEnsureDir(script.serverCode, script.path).then(() => {
+                script.sourceCode = script.serverCode;
+                if(script.conflictMode) {
+                    script.lastSyncHash = crypto.createHash('md5').update(script.sourceCode || '').digest('hex');
+                }
+                return numscripts + 1;
+            });
+        }, 0).then((numscripts: number) => {
+            // this section is exectuted once after all writeFileEnsureDir calls are finished
+            resolve();
+        }).catch((error: any) => {
+            reject(error);
+        });
     });
 }
 
@@ -1039,6 +1034,28 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
 
 
 
+function convertDocumentsFieldType(documentsType: string): string {
+    switch (documentsType) {
+        case 'Checkbox':
+        case 'Bool':
+            return 'boolean';
+        case 'Numeric':
+            return 'number';
+        case 'Date':
+        case 'Timestamp':
+            return 'Date';
+        case 'String':
+        case 'Text':
+        case 'Text (Fixed Font)':
+        case 'Filing plan':
+        case 'E-Mail':
+        case 'URL':
+        case 'HTML':
+            return 'string';
+        default:
+            return 'any';
+    }
+}
 
 
 
@@ -1046,7 +1063,7 @@ function checkVersion(loginData: config.ConnectionInformation, version: string):
     if(Number(loginData.documentsVersion) >= Number(version)) {
         return true;
     } else {
-        if(VERSION_CATEGORIES == version) {
+        if(VERSION_CATEGORIES === version) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
         }
         return false;
