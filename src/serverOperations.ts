@@ -19,7 +19,7 @@ const VERSION_FIELD_TYPES = '8044';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
-const ERROR_DECRYPT_PERMISSION = 'Only unencrypted or decrypted scripts can be downloaded';
+const ERROR_DECRYPT_PERMISSION = 'For downloading encrypted scripts the decryption PEM file is required';
 
 
 export type scriptParameter = {
@@ -616,8 +616,10 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
                     resolve([script]);
 
-                } else {
+                } else if ('true' === retval[1]) {
                     reject(new Error(ERROR_DECRYPT_PERMISSION));
+                } else {
+                    reject('Unexpected error in downloadScript');
                 }
             }).catch((reason) => {
                 reject(reason);
