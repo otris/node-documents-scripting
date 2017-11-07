@@ -822,9 +822,13 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
  * @param sdsConnection 
  * @param params Array containing all scripts to upload.
  */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
+
+        if(!connInfo) {
+            return reject('login information missing');
+        }
 
         if(0 === params.length) {
             resolve(scripts);
