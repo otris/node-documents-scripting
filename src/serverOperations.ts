@@ -311,6 +311,13 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
     });
 }
 
+/**
+ * Check if user has the permission to decrypt scripts.
+ * 
+ * @param sdsConnection 
+ * @param params 
+ * @param connInfo 
+ */
 export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PartnerNet.getProperty', ['allowDecryption']).then((value) => {
