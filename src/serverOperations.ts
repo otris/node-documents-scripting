@@ -522,7 +522,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
  */
 function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.setScriptParameters', params).then(() => {
+        sdsConnection.callClassOperation('PortalScript.setScriptInfoFromJSON', params).then(() => {
             resolve();
         }).catch((reason) => {
             reject('setScriptParameters failed: ' + reason);
