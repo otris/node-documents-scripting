@@ -22,12 +22,6 @@ const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 const ERROR_DECRYPT_PERMISSION = 'For downloading encrypted scripts the decryption PEM file is required';
 
 
-export type scriptParameter = {
-    name: string,
-    type: string,
-    value: string
-}
-
 export class scriptT  {
     /**
      * Name of the script without extension.
@@ -92,7 +86,10 @@ export class scriptT  {
      */
     category?: string;
 
-    parameters?: scriptParameter[];
+    /**
+     * json string describing the parameters
+     */
+    parameters?: string;
 
     constructor(name: string, path: string, localCode?: string) {
         this.name = name;
@@ -796,12 +793,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
                 // set parameters
 
-                let scriptParameters: string[] = [script.name];
-                script.parameters.forEach((sparam) => {
-                    scriptParameters.push(sparam.name);
-                    scriptParameters.push(sparam.type);
-                    scriptParameters.push(sparam.value);
-                });
+                let scriptParameters: string[] = [script.name, script.parameters];
 
                 // call setScriptParameters
                 setScriptParameters(sdsConnection, scriptParameters).then(() => {
