@@ -17,7 +17,7 @@ const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
 const VERSION_PARAMS_UP = '8044';
-const VERSION_PARAMS_DOWN = '8036';
+const VERSION_PARAMS_DOWN = '8044';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -407,7 +407,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
 
         // check version, later documents version have
         // function that also returns the types
-        const fieldTypesVersion = checkVersion(connInfo, VERSION_FIELD_TYPES);
+        const fieldTypesVersion = checkVersion(connInfo, VERSION_FIELD_TYPES, "VERSION_FIELD_TYPES");
 
         if (fieldTypesVersion) {
             operation = 'getFieldNamesAndTypes';
@@ -618,7 +618,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     let scriptPath;
 
                     // get category for category as folder
-                    if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES)) {
+                    if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                         script.category = retval[2];
                     }
 
@@ -628,7 +628,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         return resolve([script]);
                     }
 
-                    if (!checkVersion(connInfo, VERSION_PARAMS_DOWN)) {
+                    if (!checkVersion(connInfo, VERSION_PARAMS_DOWN, "VERSION_PARAMS_DOWN")) {
                         return resolve([script]);
                     }
 
@@ -794,7 +794,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
             // check version for category
             let paramCategory = '';
-            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES)) {
+            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                 paramCategory = script.category;
             }
 
@@ -813,7 +813,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 if (!script.parameters || script.parameters.length <= 0) {
                     return resolve([script]);
                 }
-                if (!checkVersion(connInfo, VERSION_PARAMS_UP)) {
+                if (!checkVersion(connInfo, VERSION_PARAMS_UP, "VERSION_PARAMS_UP")) {
                     return resolve([script]);
                 }
 
@@ -1081,17 +1081,17 @@ function convertDocumentsFieldType(documentsType: string): string {
 
 
 
-function checkVersion(loginData: config.ConnectionInformation, version: string): boolean {
+function checkVersion(loginData: config.ConnectionInformation, version: string, warning: string): boolean {
     if(Number(loginData.documentsVersion) >= Number(version)) {
         return true;
     } else {
-        if(VERSION_CATEGORIES === version) {
+        if("VERSION_CATEGORIES" === warning) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
         }
-        else if(VERSION_PARAMS_UP === version) {
+        else if("VERSION_PARAMS_UP" === warning) {
             loginData.lastWarning = `For upload parameter feature DOCUMENTS ${VERSION_PARAMS_UP} is required`;
         }
-        else if(VERSION_PARAMS_DOWN === version) {
+        else if("VERSION_PARAMS_DOWN" === warning) {
             loginData.lastWarning = `For download parameter feature DOCUMENTS ${VERSION_PARAMS_DOWN} is required`;
         }
         return false;
