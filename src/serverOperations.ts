@@ -16,7 +16,8 @@ const logger = Logger.create('node-documents-scripting');
 const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
-const VERSION_PARAMETERS = '8043';
+const VERSION_PARAMS_UP = '8044';
+const VERSION_PARAMS_DOWN = '8036';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -627,11 +628,11 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         return resolve([script]);
                     }
 
-                    if (!checkVersion(connInfo, VERSION_PARAMETERS)) {
+                    if (!checkVersion(connInfo, VERSION_PARAMS_DOWN)) {
                         return resolve([script]);
                     }
 
-                    // call setScriptParameters
+                    // get parameters as JSON
                     getScriptInfoAsJSON(sdsConnection, [script]).then(() => {
                         console.log(`${script.name} uploaded and parameters set`);
                         resolve([script]);
@@ -812,7 +813,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 if (!script.parameters || script.parameters.length <= 0) {
                     return resolve([script]);
                 }
-                if (!checkVersion(connInfo, VERSION_PARAMETERS)) {
+                if (!checkVersion(connInfo, VERSION_PARAMS_UP)) {
                     return resolve([script]);
                 }
 
@@ -1087,8 +1088,11 @@ function checkVersion(loginData: config.ConnectionInformation, version: string):
         if(VERSION_CATEGORIES === version) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
         }
-        else if(VERSION_PARAMETERS === version) {
-            loginData.lastWarning = `For using parameter features DOCUMENTS ${VERSION_PARAMETERS} is required`;
+        else if(VERSION_PARAMS_UP === version) {
+            loginData.lastWarning = `For upload parameter feature DOCUMENTS ${VERSION_PARAMS_UP} is required`;
+        }
+        else if(VERSION_PARAMS_DOWN === version) {
+            loginData.lastWarning = `For download parameter feature DOCUMENTS ${VERSION_PARAMS_DOWN} is required`;
         }
         return false;
     }
