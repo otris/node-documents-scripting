@@ -16,6 +16,7 @@ const logger = Logger.create('node-documents-scripting');
 const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
+const VERSION_PARAMETERS = '8044';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -90,6 +91,7 @@ export class scriptT  {
      * json string describing the parameters
      */
     parameters?: string;
+    downloadParameters?: string;
 
     constructor(name: string, path: string, localCode?: string) {
         this.name = name;
@@ -520,7 +522,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
  * @param sdsConnection 
  * @param params 
  */
-function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Promise<void> {
+function setScriptInfoFromJSON(sdsConnection: SDSConnection, params: string[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         sdsConnection.callClassOperation('PortalScript.setScriptInfoFromJSON', params).then(() => {
             resolve();
@@ -532,7 +534,7 @@ function setScriptParameters(sdsConnection: SDSConnection, params: string[]): Pr
 
 
 
-export async function getScriptParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+export async function getScriptInfoAsJSON(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
         const scriptname: string = params[0].name;
         sdsConnection.callClassOperation('PortalScript.getScriptInfoAsJSON', [scriptname]).then((param) => {
@@ -551,13 +553,13 @@ export async function getScriptParameters(sdsConnection: SDSConnection, params: 
 
 
 
-export async function getAllParameters(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+export async function getScriptInfoAsJSONAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         let jsonOut: string[] = [];
 
         // see description of reduce in uploadAll
         return reduce(params, function(numScripts: number, _script: scriptT) {
-            return getScriptParameters(sdsConnection, [_script]).then((value) => {
+            return getScriptInfoAsJSON(sdsConnection, [_script]).then((value) => {
                 const jsonScript: string = value[0];
                 jsonOut.push(_script.name);
                 jsonOut.push(jsonScript);
@@ -614,11 +616,30 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     let scriptPath;
 
                     // get category for category as folder
-                    if(checkVersion(connInfo, VERSION_CATEGORIES) && retval[2] && 0 < retval[2].length) {
+                    if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES)) {
                         script.category = retval[2];
                     }
 
-                    resolve([script]);
+                    // script parameters
+
+                    if (!script.downloadParameters) {
+                        return resolve([script]);                        
+                    }
+
+                    if (!checkVersion(connInfo, VERSION_PARAMETERS)) {
+                        return resolve([script]);                        
+                    }
+
+                    // call setScriptParameters
+                    getScriptInfoAsJSON(sdsConnection, [script]).then(() => {
+                        console.log(`${script.name} uploaded and parameters set`);
+                        resolve([script]);
+                    }).catch((reason) => {
+                        console.log(`${script.name} uploaded but parameters not set`);
+                        // todo warning
+                        resolve([script]);
+                    });
+                    
 
                 } else if ('true' === retval[1]) {
                     reject(new Error(ERROR_DECRYPT_PERMISSION));
@@ -742,7 +763,7 @@ export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]
  * @param sdsConnection 
  * @param params 
  */
-export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], loginData: config.ConnectionInformation): Promise<scriptT[]> {
+export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
 
         // check parameters
@@ -771,7 +792,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
             // check version for category
             let paramCategory = '';
-            if(checkVersion(loginData, VERSION_CATEGORIES) && script.category) {
+            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES)) {
                 paramCategory = script.category;
             }
 
@@ -790,13 +811,16 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 if (!script.parameters || script.parameters.length <= 0) {
                     return resolve([script]);
                 }
+                if (!checkVersion(connInfo, VERSION_PARAMETERS)) {
+                    return resolve([script]);
+                }
 
                 // set parameters
 
                 let scriptParameters: string[] = [script.name, script.parameters];
 
                 // call setScriptParameters
-                setScriptParameters(sdsConnection, scriptParameters).then(() => {
+                setScriptInfoFromJSON(sdsConnection, scriptParameters).then(() => {
                     console.log(`${script.name} uploaded and parameters set`);
                     resolve([script]);
                 }).catch((reason) => {
@@ -1061,6 +1085,9 @@ function checkVersion(loginData: config.ConnectionInformation, version: string):
     } else {
         if(VERSION_CATEGORIES === version) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
+        }
+        else if(VERSION_PARAMETERS === version) {
+            loginData.lastWarning = `For using parameter features DOCUMENTS ${VERSION_PARAMETERS} is required`;
         }
         return false;
     }
