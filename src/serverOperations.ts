@@ -16,7 +16,7 @@ const logger = Logger.create('node-documents-scripting');
 const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
-const VERSION_PARAMETERS = '8044';
+const VERSION_PARAMETERS = '8043';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -91,7 +91,7 @@ export class scriptT  {
      * json string describing the parameters
      */
     parameters?: string;
-    downloadParameters?: string;
+    downloadParameters?: boolean;
 
     constructor(name: string, path: string, localCode?: string) {
         this.name = name;
