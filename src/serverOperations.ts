@@ -624,11 +624,11 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     // script parameters
 
                     if (!script.downloadParameters) {
-                        return resolve([script]);                        
+                        return resolve([script]);
                     }
 
                     if (!checkVersion(connInfo, VERSION_PARAMETERS)) {
-                        return resolve([script]);                        
+                        return resolve([script]);
                     }
 
                     // call setScriptParameters
