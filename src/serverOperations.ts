@@ -534,7 +534,7 @@ function setScriptInfoFromJSON(sdsConnection: SDSConnection, params: string[]): 
 
 
 
-export async function getScriptInfoAsJSON(sdsConnection: SDSConnection, scripts: scriptT[]): Promise<string[]> {
+function getScriptInfoAsJSON(sdsConnection: SDSConnection, scripts: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
         const script = scripts[0];
         sdsConnection.callClassOperation('PortalScript.getScriptInfoAsJSON', [script.name]).then((param) => {
