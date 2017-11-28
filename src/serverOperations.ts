@@ -108,7 +108,7 @@ export class scriptT  {
 
 
 
-export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo?: config.ConnectionInformation) => Promise<any[]>;
+export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo: config.ConnectionInformation) => Promise<any[]>;
 
 
 /**
@@ -340,7 +340,7 @@ export async function checkDecryptionPermission(sdsConnection: SDSConnection, pa
  * @param sdsConnection 
  * @param params 
  */
-export async function getScriptsFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function getScriptsFromServer(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: scriptT[] = [];
@@ -362,7 +362,7 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
  * @param sdsConnection 
  * @param params 
  */
-export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[]): Promise<string[]> {
+export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
             let scripts: string[] = [];
@@ -707,7 +707,7 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
  * @param sdsConnection 
  * @param params 
  */
-export function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
 
         if(0 === params.length) {
@@ -888,7 +888,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
  * @param sdsConnection 
  * @param params 
  */
-export async function runScript(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function runScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
@@ -917,13 +917,13 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[])
  * @param sdsConnection 
  * @param params Array containing all scripts to execute.
  */
-export async function runAll(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
+export async function runAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
         // see description of reduce in uploadAll
         return reduce(params, function(numScripts: number, _script: scriptT) {
-            return runScript(sdsConnection, [_script]).then((value) => {
+            return runScript(sdsConnection, [_script], connInfo).then((value) => {
                 let script: scriptT = value[0];
                 scripts.push(script);
                 return numScripts + 1;
