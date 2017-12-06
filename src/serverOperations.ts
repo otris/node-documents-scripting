@@ -16,8 +16,9 @@ const logger = Logger.create('node-documents-scripting');
 const VERSION_MIN = '8034';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
-const VERSION_PARAMS_UP = '8044';
-const VERSION_PARAMS_DOWN = '8036';
+const VERSION_PARAMS_SET = '8044';
+const VERSION_PARAMS_GET = '8036';
+const VERSION_SHOW_IMPORTS = '8047';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -290,6 +291,20 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
  */
 
 
+export async function getSourceCodeForEditor(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        if (!checkVersion(connInfo, VERSION_SHOW_IMPORTS, "VERSION_SHOW_IMPORTS")) {
+            // warning message inside connInfo
+            return reject();
+        }
+        sdsConnection.callClassOperation('PortalScript.getSourceCodeForEditor', params).then((value) => {
+            const sourceCode = value[0];
+            resolve([sourceCode]);
+        }).catch((reason) => {
+            reject('getSourceCodeForEditor failed: ' + reason);
+        });
+    });
+}
 
 
 /**
@@ -628,7 +643,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         return resolve([script]);
                     }
 
-                    if (!checkVersion(connInfo, VERSION_PARAMS_DOWN, "VERSION_PARAMS_DOWN")) {
+                    if (!checkVersion(connInfo, VERSION_PARAMS_GET, "VERSION_PARAMS_DOWN")) {
                         return resolve([script]);
                     }
 
@@ -813,7 +828,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
                 if (!script.parameters || script.parameters.length <= 0) {
                     return resolve([script]);
                 }
-                if (!checkVersion(connInfo, VERSION_PARAMS_UP, "VERSION_PARAMS_UP")) {
+                if (!checkVersion(connInfo, VERSION_PARAMS_SET, "VERSION_PARAMS_UP")) {
                     return resolve([script]);
                 }
 
@@ -1088,11 +1103,14 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
         if("VERSION_CATEGORIES" === warning) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
         }
-        else if("VERSION_PARAMS_UP" === warning) {
-            loginData.lastWarning = `For upload parameter feature DOCUMENTS ${VERSION_PARAMS_UP} is required`;
+        else if("VERSION_PARAMS_SET" === warning) {
+            loginData.lastWarning = `For uploading parameter DOCUMENTS ${VERSION_PARAMS_SET} is required`;
         }
-        else if("VERSION_PARAMS_DOWN" === warning) {
-            loginData.lastWarning = `For download parameter feature DOCUMENTS ${VERSION_PARAMS_DOWN} is required`;
+        else if("VERSION_PARAMS_GET" === warning) {
+            loginData.lastWarning = `For downloading parameter DOCUMENTS ${VERSION_PARAMS_GET} is required`;
+        }
+        else if("VERSION_SHOW_IMPORTS" === warning) {
+            loginData.lastWarning = `For showing imports DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`;
         }
         return false;
     }
