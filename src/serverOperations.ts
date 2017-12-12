@@ -301,7 +301,7 @@ export async function getSourceCodeForEditor(sdsConnection: SDSConnection, param
             const sourceCode = value[0];
             resolve([sourceCode]);
         }).catch((reason) => {
-            reject('getSourceCodeForEditor failed: ' + reason);
+            reject(reason);
         });
     });
 }
