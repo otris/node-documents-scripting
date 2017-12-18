@@ -476,6 +476,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
     return new Promise<string[]>((resolve, reject) => {
         let output = '';
         let fileTypeMappings = '';
+        let fileTypesDisj = '';
         sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
 
             // some checks
@@ -498,6 +499,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                     // add 'fileTypeName' to file type mappings
                     if (fileTypeName.length > 0) {
                         fileTypeMappings += `\t"${fileTypeName}": ${fileTypeName};` + os.EOL;
+                        fileTypesDisj += ` ${fileTypeName} |`;
                     }
 
                     // count the file types, not really needed for now
@@ -513,7 +515,10 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                     fileTypeMapper += fileTypeMappings;
                     fileTypeMapper += `}` + os.EOL;
                     fileTypeMapper += os.EOL;
-                    output += fileTypeMapper;
+                    output += fileTypeMapper + os.EOL;
+                    // remove the last ' |' from fileTypesDisj
+                    let fileTypesType = 'declare type FileTypes =' + fileTypesDisj.slice(0, fileTypesDisj.length - 2) + ';';
+                    output += fileTypesType + os.EOL;
                 }
 
                 // output contains the whole d.ts string now
