@@ -19,6 +19,7 @@ const VERSION_FIELD_TYPES = '8044';
 const VERSION_PARAMS_SET = '8044';
 const VERSION_PARAMS_GET = '8036';
 const VERSION_SHOW_IMPORTS = '8047';
+const VERSION_ENCRYPTION = '8040';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -341,7 +342,6 @@ export async function checkDecryptionPermission(sdsConnection: SDSConnection, pa
                 perm = true;
             }
             connInfo.decryptionPermission = perm;
-            console.log('checkDecryptionPermission: ' + connInfo.decryptionPermission);
             resolve();
         }).catch((reason) => {
             reject('checkDecryptionPermission failed: ' + reason);
@@ -794,6 +794,14 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         }
 
         let script: scriptT = params[0];
+
+        // if script is encrypted or decrypted, server version must be 8040 or higher
+        if (script.encrypted === 'true' || script.encrypted === 'decrypted') {
+            if (!checkVersion(connInfo, VERSION_ENCRYPTION, 'VERSION_ENCRYPTION')) {
+                return reject(`For encrypting scripts on upload DOCUMENTS ${VERSION_ENCRYPTION} is required`);
+            }
+        }
+
         script.localCode = ensureNoBOM(script.localCode);
         
         checkForConflict(sdsConnection, [script]).then((value) => {
@@ -1116,6 +1124,9 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
         }
         else if("VERSION_SHOW_IMPORTS" === warning) {
             loginData.lastWarning = `For showing imports DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`;
+        }
+        else if("VERSION_ENCRYPTION" === warning) {
+            // error must be rejected
         }
         return false;
     }
