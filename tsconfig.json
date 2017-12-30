@@ -18,6 +18,7 @@
         "src/main.ts",
         "src/cmd.ts",
         "src/config.ts",
-        "src/serverOperations.ts"
+        "src/serverOperations.ts",
+        "src/serverVersion.ts"
     ]
 }
