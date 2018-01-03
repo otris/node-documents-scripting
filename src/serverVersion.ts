@@ -27,38 +27,38 @@ export function mapVersion(buildVer: string): string {
         return '';
     }
 
-    if (buildNo > 8000) {
-        buildNo -= 6000;
+    if (buildNo < 3000) {
+        buildNo += 6000;
     }
 
-    if (buildNo >= 2045) {
+    if (buildNo === 2045) {
         return '5.0c HF1';
 
-    } else if (buildNo >= 2040) {
+    } else if (buildNo === 8040) {
         return '5.0c';
 
-    } else if (buildNo >= 2034) {
+    } else if (buildNo === 8034) {
         return '5.0b HF2';
 
-    } else if (buildNo >= 2032) {
+    } else if (buildNo === 8032) {
         return '5.0b HF1';
 
-    } else if (buildNo >= 2030) {
+    } else if (buildNo === 8030) {
         return '5.0b';
 
-    } else if (buildNo >= 2023) {
+    } else if (buildNo === 8023) {
         return '5.0a HF1';
 
-    } else if (buildNo >= 2022) {
+    } else if (buildNo === 8022) {
         return '5.0a';
 
-    } else if (buildNo >= 2014) {
+    } else if (buildNo === 8014) {
         return '5.0 HF2';
 
-    } else if (buildNo >= 2013) {
+    } else if (buildNo === 8013) {
         return '5.0 HF1';
 
     }
 
-    return '';
+    return buildNo.toString();
 }
