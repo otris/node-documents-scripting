@@ -714,18 +714,11 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
 /**
  * The script is downloaded from server and it has to be checked, if it is encrypted there.
  * 
- * There are two cases:
- * 1) DOCUMENTS version > 8034:
- *    In the second case, the download call returns the encryption flag. We just check this flag,
- *    if the script is encrypted or decrypted (meaning it is encrypted on server)
- *    we reject the error message.
- * 2) DOCUMENTS version == 8034
- *    This case is more difficult. We don't get any information of the encryption flag.
- *    So we just analyse the source code. Encrypted scripts do not conain any white space.
- *    This is rather a bad hack, but it's the easiest way to find out, if the script is
- *    encrypted, and actually, it works.
+ * The download call returns the encryption flag since VERSION_MIN = 8034. So we just have
+ * to check this flag, if the script is encrypted or decrypted (meaning it is encrypted on
+ * server) we reject the error message.
  */
-function checkVersion50bEncryption(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
+function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
     return new Promise<void>((resolve, reject) => {
 
         if (connInfo && checkVersion(connInfo, VERSION_ENCRYPTION)) {
@@ -741,35 +734,16 @@ function checkVersion50bEncryption(sdsConnection: SDSConnection, params: scriptT
         if (script.encrypted === 'decrypted') {
             return reject(`For encrypting scripts on upload DOCUMENTS ${VERSION_ENCRYPTION} is required`);
         }
-    
-    
+
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
             if (!value || value.length <= 0 || !value[0] || value[0].length <= 0) {
                 return reject('Download script failed in scriptEncryptedOnServer');
             }
-
-            const errVersion = `Encrypted script cannot be uploaded to DOCUMENTS ${connInfo.documentsVersion}! Decrypt or delete the script on server`;
-            if (connInfo.documentsVersion === VERSION_MIN) {
-                // version 8034
-
-                let sourceCode = value[0];
-                const cryptPos = sourceCode.indexOf('\\\\ #crypt');
-                if (cryptPos > 0) {
-                    sourceCode = sourceCode.substr(cryptPos);
-                }
-                // check, if source code is encrypted (see function jsdoc)
-                if (sourceCode.indexOf(' ') < 0) {
-                    return reject(errVersion);
-                }
-            } else {
-                // version > 8034
-    
-                if (value.length < 2 || value[1].length <= 0) {
-                    return reject('Download script failed in scriptEncryptedOnServer DOCUMENTS verion ' + connInfo.documentsVersion);
-                }
-                if (value[1] === 'true' || value[1] === 'decrypted') {
-                    return reject(errVersion);
-                }
+            if (value.length < 2 || value[1].length <= 0) {
+                return reject('Download script failed in scriptEncryptedOnServer DOCUMENTS verion ' + connInfo.documentsVersion);
+            }
+            if (value[1] === 'true' || value[1] === 'decrypted') {
+                return reject(`Encrypted script can only be uploaded to DOCUMENTS ${VERSION_ENCRYPTION} or higher! Decrypt or delete the script to upload it`);
             }
             return resolve();
 
@@ -860,15 +834,15 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         let script: scriptT = params[0];
 
 
-        // there are problems with encrypted scripts on 5.0b
+        // there are problems with encrypted scripts on versions lower than 8040
         try {
-            await checkVersion50bEncryption(sdsConnection, [script], connInfo);
+            await checkVersionEncryption(sdsConnection, [script], connInfo);
         } catch (reason) {
             return reject(reason);
         }
 
         script.localCode = ensureNoBOM(script.localCode);
-        
+
         checkForConflict(sdsConnection, [script]).then((value) => {
 
             // return if conflict
