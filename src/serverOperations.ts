@@ -14,12 +14,12 @@ const fs = require('fs-extra');
 const logger = Logger.create('node-documents-scripting');
 
 const VERSION_MIN = '8034';
+const VERSION_PARAMS_GET = '8036';
+const VERSION_ENCRYPTION = '8040';
 const VERSION_CATEGORIES = '8041';
 const VERSION_FIELD_TYPES = '8044';
 const VERSION_PARAMS_SET = '8044';
-const VERSION_PARAMS_GET = '8036';
 const VERSION_SHOW_IMPORTS = '8047';
-const VERSION_ENCRYPTION = '8040';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
@@ -242,7 +242,6 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
         }).then((value) => {
             let docVersion = value[0];
             loginData.documentsVersion = docVersion;
-            console.log(`Current version: ${docVersion} Required verson: ${VERSION_MIN}`);
             if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);
             } else if(Number(VERSION_MIN) > Number(docVersion)) {
@@ -712,7 +711,73 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
 
 
 
+/**
+ * The script is downloaded from server and it has to be checked, if it is encrypted there.
+ * 
+ * There are two cases:
+ * 1) DOCUMENTS version > 8034:
+ *    In the second case, the download call returns the encryption flag. We just check this flag,
+ *    if the script is encrypted or decrypted (meaning it is encrypted on server)
+ *    we reject the error message.
+ * 2) DOCUMENTS version == 8034
+ *    This case is more difficult. We don't get any information of the encryption flag.
+ *    So we just analyse the source code. Encrypted scripts do not conain any white space.
+ *    This is rather a bad hack, but it's the easiest way to find out, if the script is
+ *    encrypted, and actually, it works.
+ */
+function checkVersion50bEncryption(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
 
+        if (connInfo && checkVersion(connInfo, VERSION_ENCRYPTION)) {
+            return resolve();
+        }
+
+        if(0 === params.length) {
+            return reject('Empty paramter in scriptEncryptedOnServer');
+        }
+
+        let script: scriptT = params[0];
+
+        if (script.encrypted === 'decrypted') {
+            return reject(`For encrypting scripts on upload DOCUMENTS ${VERSION_ENCRYPTION} is required`);
+        }
+    
+    
+        sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+            if (!value || value.length <= 0 || !value[0] || value[0].length <= 0) {
+                return reject('Download script failed in scriptEncryptedOnServer');
+            }
+
+            const errVersion = `Encrypted script cannot be uploaded to DOCUMENTS ${connInfo.documentsVersion}! Decrypt or delete the script on server`;
+            if (connInfo.documentsVersion === VERSION_MIN) {
+                // version 8034
+
+                let sourceCode = value[0];
+                const cryptPos = sourceCode.indexOf('\\\\ #crypt');
+                if (cryptPos > 0) {
+                    sourceCode = sourceCode.substr(cryptPos);
+                }
+                // check, if source code is encrypted (see function jsdoc)
+                if (sourceCode.indexOf(' ') < 0) {
+                    return reject(errVersion);
+                }
+            } else {
+                // version > 8034
+    
+                if (value.length < 2 || value[1].length <= 0) {
+                    return reject('Download script failed in scriptEncryptedOnServer DOCUMENTS verion ' + connInfo.documentsVersion);
+                }
+                if (value[1] === 'true' || value[1] === 'decrypted') {
+                    return reject(errVersion);
+                }
+            }
+            return resolve();
+
+        }).catch((reason) => {
+            reject(reason);
+        });
+    });
+}
 
 
 
@@ -786,20 +851,20 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
  * @param params 
  */
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
+    return new Promise<scriptT[]>(async (resolve, reject) => {
 
         // check parameters
         if(0 === params.length) {
             return resolve([]);
         }
-
         let script: scriptT = params[0];
 
-        // if script is encrypted or decrypted, server version must be 8040 or higher
-        if (script.encrypted === 'true' || script.encrypted === 'decrypted') {
-            if (!checkVersion(connInfo, VERSION_ENCRYPTION, 'VERSION_ENCRYPTION')) {
-                return reject(`For encrypting scripts on upload DOCUMENTS ${VERSION_ENCRYPTION} is required`);
-            }
+
+        // there are problems with encrypted scripts on 5.0b
+        try {
+            await checkVersion50bEncryption(sdsConnection, [script], connInfo);
+        } catch (reason) {
+            return reject(reason);
         }
 
         script.localCode = ensureNoBOM(script.localCode);
@@ -1109,7 +1174,7 @@ function convertDocumentsFieldType(documentsType: string): string {
 
 
 
-function checkVersion(loginData: config.ConnectionInformation, version: string, warning: string): boolean {
+function checkVersion(loginData: config.ConnectionInformation, version: string, warning?: string): boolean {
     if(Number(loginData.documentsVersion) >= Number(version)) {
         return true;
     } else {
@@ -1125,9 +1190,7 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
         else if("VERSION_SHOW_IMPORTS" === warning) {
             loginData.lastWarning = `For showing imports DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`;
         }
-        else if("VERSION_ENCRYPTION" === warning) {
-            // error must be rejected
-        }
+
         return false;
     }
 }
