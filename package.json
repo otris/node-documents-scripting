@@ -16,7 +16,10 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "postinstall": "tsc -p ./"
+    "postinstall": "tsc -p ./",
+    "simpleUpload": "node ./examples/simpleUpload.js",
+    "simpleDownload": "node ./examples/simpleDownload.js",
+    "simpleTest": "node ./examples/simpleTest.js"
   },
   "dependencies": {
     "@types/node": "^7.0.4",
