@@ -19,10 +19,15 @@ myScript.localCode = myTestCode;
 myScript.conflictMode = false;
 
 
-// upload
 async function uploadAndCheck(paramLogin, paramScript){
+
+    // upload
     await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.uploadScript);
+
+    // download
     var retval = await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.downloadScript);
+
+    // check
     if (retval && retval[0] && retval[0].serverCode === myTestCode) {
         console.log('Everything ok :)\n');
     } else {
