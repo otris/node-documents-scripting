@@ -34,7 +34,10 @@ export class scriptT  {
     name: string;
     path: string;
     /**
-     * Source code of script.
+     * The source code of the script.
+     * 
+     * If serverCode is set after calling uploadScript, localCode contains the
+     * local code of the script and serverCode the code on server.
      */
     localCode?: string;
     /**
@@ -60,11 +63,14 @@ export class scriptT  {
     allowDownloadEncrypted = false;
 
     /**
-     * If a script in conflict mode is uploaded, the hash value is used to
-     * check, if the script (the source code of the script) on server has
-     * changed since last up- or download.
-     * If the script in conflict mode has been changed on server, it won't
-     * be uploaded, instead 'conflict' will be set to true.
+     * Default: true
+     * 
+     * If the function 'uploadScript' is called with a script in conflict
+     * mode, the hash value is used to check, if the source code of the
+     * script on server has changed since last up- or download.
+     * 
+     * If a script in conflict mode was changed on server, it won't
+     * be uploaded, instead the member 'conflict' will be set to true.
      */
     conflictMode = true;
     /**
@@ -74,14 +80,14 @@ export class scriptT  {
      */
     lastSyncHash?: string;
     /**
-     * conflict is set to true, if the user tried to upload a script, but
-     * the source code of the script on server has been changed since last
-     * up- or download.
+     * conflict is set to true, if uploadScript was called with this script,
+     * but the source code of the script on server has been changed since
+     * last up- or download.
      */
     conflict?: boolean;
     /**
-     * forceUpload is set to true if conflict is true and the user decided
-     * to upload and overwrite the script on server anyway.
+     * If this member is set to true, the script will be uploaded, even if
+     * it's in conflict mode and the source code was changed on server.
      */
     forceUpload?: boolean;
 
@@ -96,9 +102,11 @@ export class scriptT  {
     parameters?: string;
     downloadParameters?: boolean;
 
-    constructor(name: string, path: string, localCode?: string) {
+    constructor(name: string, path?: string, localCode?: string) {
         this.name = name;
-        this.path = path;
+        if (path) {
+            this.path = path;
+        }
         if (localCode) {
             this.localCode = localCode;
         }
@@ -133,7 +141,6 @@ export async function serverSession(loginData: config.ConnectionInformation, par
 
         // first try to get the login data
         if (loginData.checkLoginData()) {
-            console.log('ensureLoginData successful');
 
             let onConnect: boolean = false;
 
@@ -147,7 +154,6 @@ export async function serverSession(loginData: config.ConnectionInformation, par
             // function that is called on connect event
             sdsSocket.on('connect', () => {
                 onConnect = true;
-                console.log('callback socket.on(connect)');
 
                 doLogin(loginData, sdsSocket).then((sdsConnection) => {
                     
@@ -179,11 +185,9 @@ export async function serverSession(loginData: config.ConnectionInformation, par
             // callback on close
             // function that is called on close event
             sdsSocket.on('close', (hadError: boolean) => {
-                console.log('callback socket.on(close)');
                 if (hadError) {
                     console.log('remote closed SDS connection due to error');
                 } else {
-                    console.log('remote closed SDS connection');
                 }
             });
 
@@ -221,14 +225,12 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
         sdsConnection.timeout = loginData.sdsTimeout? loginData.sdsTimeout: SDS_DEFAULT_TIMEOUT;
 
         sdsConnection.connect('node-documents-scripting').then(() => {
-            console.log('connect successful');
             let username = loginData.username;
             let password: '' | Hash = loginData.password? loginData.password : '';
             return sdsConnection.changeUser(username, password);
             
         }).then(userId => {
             loginData.userId = userId;
-            console.log('changeUser successful');
             if (loginData.principal.length > 0) {
                 return sdsConnection.changePrincipal(loginData.principal);
             } else {
@@ -236,7 +238,6 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             }
 
         }).then(() => {
-            console.log('changePrincipal successful');
             return sdsConnection.callClassOperation('PartnerNet.getVersionNo', []);
 
         }).then((value) => {
