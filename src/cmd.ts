@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as config from './config';
-import { SDSConnection } from 'node-sds';
+import { SDSConnection, getJanusPassword } from 'node-sds';
 import * as sdsAccess from './serverOperations';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -175,6 +175,7 @@ async function upload(loginData: config.ConnectionInformation, files: string[]) 
 }
 
 
+// todo move to config.ts
 export function loadConfigFile(login: config.ConnectionInformation, configFile: string) : boolean {
     console.log('loadConfigFile');
     login.configFile = configFile;
@@ -191,7 +192,7 @@ export function loadConfigFile(login: config.ConnectionInformation, configFile: 
                     login.port = config.applicationPort;
                     login.principal = config.principal;
                     login.username = config.username;
-                    login.password = config.password;
+                    login.password = getJanusPassword(config.password);
                     login.sdsTimeout = config.sdsTimeout;
                 }
             });
