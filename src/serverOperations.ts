@@ -713,11 +713,14 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
 
 
 /**
- * The script is downloaded from server and it has to be checked, if it is encrypted there.
- * 
- * The download call returns the encryption flag since VERSION_MIN = 8034. So we just have
- * to check this flag, if the script is encrypted or decrypted (meaning it is encrypted on
- * server) we reject the error message.
+ * There are problems with the encryption flag on all server versions lower than 8040.
+ * To upload a script correctly to one of this versions, the encryption flag on server must
+ * be set. The encryption flag on server will be set on all versions, if the flag
+ * 'script.encrypted' is set.
+ *
+ * To check, if the script is encrypted on server, the script is downloaded by this function.
+ * The download call returns the encryption flag on all versions. So we just have to check
+ * this flag.
  */
 function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -732,8 +735,8 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
 
         let script: scriptT = params[0];
 
-        if (script.encrypted === 'decrypted') {
-            return reject(`For encrypting scripts on upload DOCUMENTS ${VERSION_ENCRYPTION} is required`);
+        if (script.encrypted === 'decrypted' || script.encrypted === 'false') {
+            return resolve();
         }
 
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
@@ -744,9 +747,14 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
                 return reject('Download script failed in scriptEncryptedOnServer DOCUMENTS verion ' + connInfo.documentsVersion);
             }
             if (value[1] === 'true' || value[1] === 'decrypted') {
-                return reject(`Encrypted script can only be uploaded to DOCUMENTS ${VERSION_ENCRYPTION} or higher! Decrypt or delete the script to upload it`);
+                script.encrypted = 'decrypted';
+                return resolve();
             }
-            return resolve();
+            if (value[1] === 'false') {
+                script.encrypted = 'false';
+                return resolve();
+            }
+            return reject(`Unexptected return value in checkVersionEncryption: ${value[1]}`);
 
         }).catch((reason) => {
             reject(reason);
