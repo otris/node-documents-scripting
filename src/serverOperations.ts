@@ -165,7 +165,6 @@ export async function serverSession(loginData: config.ConnectionInformation, par
                             reject('close connection failed ' + reason);
                         });
                     }).catch((reason) => {
-                        console.log('serverOperation -> catch: ' + reason);
                         closeConnection(sdsConnection).then(() => {
                             // reject because serverOperation went wrong
                             reject(reason);
@@ -730,7 +729,7 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
         }
 
         if(0 === params.length) {
-            return reject('Empty paramter in scriptEncryptedOnServer');
+            return reject('Empty paramter in checkVersionEncryption');
         }
 
         let script: scriptT = params[0];
@@ -740,11 +739,12 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
         }
 
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
-            if (!value || value.length <= 0 || !value[0] || value[0].length <= 0) {
-                return reject('Download script failed in scriptEncryptedOnServer');
+            if (!value || value.length === 0) {
+                // script not on server
+                return resolve();
             }
-            if (value.length < 2 || value[1].length <= 0) {
-                return reject('Download script failed in scriptEncryptedOnServer DOCUMENTS verion ' + connInfo.documentsVersion);
+            if (value.length < 2) {
+                return reject(`Unexptected return value length (${value.length}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
             }
             if (value[1] === 'true' || value[1] === 'decrypted') {
                 script.encrypted = 'decrypted';
@@ -754,7 +754,7 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
                 script.encrypted = 'false';
                 return resolve();
             }
-            return reject(`Unexptected return value in checkVersionEncryption: ${value[1]}`);
+            return reject(`Unexptected return value (${value}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
 
         }).catch((reason) => {
             reject(reason);
@@ -790,13 +790,17 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
 
-            if(!value || value.length < 2 || typeof(value[0]) !== 'string') {
-                // probably script deleted on server
+            if(!value || value.length === 0) {
+                // script not on server
                 script.conflict = true;
                 return resolve([script]);
             }
 
-            if(value && value.length >= 2 && 'true' === value[1]) {
+            if(value.length < 2) {
+                return reject('Unexpected error in checkForConflict');
+            }
+
+            if(value && 'true' === value[1]) {
                 // script encrypted on server and no decryption pem available
                 script.conflict = true;
                 script.encrypted = value[1];
