@@ -734,9 +734,15 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
 
         let script: scriptT = params[0];
 
-        if (script.encrypted === 'decrypted' || script.encrypted === 'false') {
+        if (script.encrypted === 'decrypted') {
             return resolve();
         }
+        if (script.encrypted === 'forceFalse') {
+            script.encrypted = 'false';
+            return resolve();
+        }
+        // script.encrypted === 'false' is default
+        // meaning, script is encrypted if it's encrypted on server or contains // #crypt
 
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
             if (!value || value.length === 0) {
