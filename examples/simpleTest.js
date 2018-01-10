@@ -29,9 +29,9 @@ async function uploadAndCheck(paramLogin, paramScript){
 
     // check
     if (retval && retval[0] && retval[0].serverCode === codeBeforeUpload) {
-        // console.log('Everything ok :)');
+        console.log('-> ok');
     } else {
-        console.log('Something went wrong :(');
+        console.log('-> Something went wrong');
     }
 }
 
@@ -53,7 +53,7 @@ async function upload(paramLogin, paramScript){
         console.log(reason);
         return;
     }
-    // console.log('Uploaded script');
+    console.log('-> ok');
 }
 
 
@@ -87,26 +87,39 @@ async function executeAll() {
     myScript.encrypted = undefined;
     await download(login, myScript);
     if (myScript.encrypted === 'decrypted') {
-        // console.log('Script encrypted on server');
+        console.log('-> ok');
     } else {
-        console.log('Unexpected encryption flag: ' + myScript.encrypted);
+        console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
     }
 
-    // server should decrypt script
-    console.log("check decrypt...");
+    // false is default, script should be kept encrypted
+    console.log("check false...");
     myScript.encrypted = 'false';
     await uploadAndCheck(login, myScript);
 
-    // script should be unencrypted on server
+    // script should be encrypted
+    console.log('check script still encrypted on server...');
+    myScript.encrypted = undefined;
+    await download(login, myScript);
+    if (myScript.encrypted === 'decrypted') {
+        console.log('-> ok');
+    } else {
+        console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
+    }
+
+    // check forceFalse, server should not encrypt script
+    console.log("check forceFalse...");
+    myScript.encrypted = 'forceFalse';
+    await uploadAndCheck(login, myScript);
+
+    // script should be unencrypted
     console.log('check script unencrypted on server...');
     myScript.encrypted = undefined;
     await download(login, myScript);
     if (myScript.encrypted === 'false') {
-        // console.log('Script encrypted on server');
+        console.log('-> ok');
     } else {
-        console.log('Unexpected encryption flag: ' + myScript.encrypted);
+        console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
     }
-
-    console.log('all checks finished!\n');
 }
 executeAll();
