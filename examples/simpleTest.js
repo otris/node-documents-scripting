@@ -23,7 +23,7 @@ async function uploadAndCheck(paramLogin, paramScript){
         // download
         retval = await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.downloadScript);
     } catch (reason) {
-        console.log(reason);
+        console.log('-> ' + reason);
         return;
     }
 
@@ -40,7 +40,7 @@ async function download(paramLogin, paramScript){
     try {
         retval = await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.downloadScript);
     } catch (reason) {
-        console.log(reason);
+        console.log('-> ' + reason);
         return;
     }
     // console.log('Downloaded script: ' + retval[0].serverCode);
@@ -50,7 +50,7 @@ async function upload(paramLogin, paramScript){
     try {
         await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.uploadScript);
     } catch (reason) {
-        console.log(reason);
+        console.log('-> ' + reason);
         return;
     }
     console.log('-> ok');
@@ -86,7 +86,7 @@ async function executeAll() {
     console.log('check script encrypted on server...');
     myScript.encrypted = undefined;
     await download(login, myScript);
-    if (myScript.encrypted === 'decrypted') {
+    if (myScript.encrypted === 'decrypted' || myScript.encrypted === 'true') {
         console.log('-> ok');
     } else {
         console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
@@ -101,7 +101,7 @@ async function executeAll() {
     console.log('check script still encrypted on server...');
     myScript.encrypted = undefined;
     await download(login, myScript);
-    if (myScript.encrypted === 'decrypted') {
+    if (myScript.encrypted === 'decrypted' || myScript.encrypted === 'true') {
         console.log('-> ok');
     } else {
         console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
@@ -117,6 +117,22 @@ async function executeAll() {
     myScript.encrypted = undefined;
     await download(login, myScript);
     if (myScript.encrypted === 'false') {
+        console.log('-> ok');
+    } else {
+        console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
+    }
+
+    // add // #crypt to source code
+    console.log('check // #crypt');
+    var myTestCodeCrypt = "// #crypt\r\nreturn 'My simple script!';\r\n";
+    myScript.localCode = myTestCodeCrypt;
+    await uploadAndCheck(login, myScript);
+
+    // script should be encrypted
+    console.log('check script encrypted again on server...');
+    myScript.encrypted = undefined;
+    await download(login, myScript);
+    if (myScript.encrypted === 'decrypted' || myScript.encrypted === 'true') {
         console.log('-> ok');
     } else {
         console.log('-> Unexpected encryption flag: ' + myScript.encrypted);
