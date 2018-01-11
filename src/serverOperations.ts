@@ -50,10 +50,24 @@ export class scriptT  {
      */
     output?: string;
     /**
-     * Encryption state.
-     * true: script is encrypted on server and in VS Code
-     * false: script is not encrypted on server and not encrypted in VS Code
-     * decrypted: script is encrypted on server and not encrypted in VS Code
+     * Encryption state of local and server script on upload/download.
+     * Value can be true, decrypted, false or forceFalse
+     * 
+     * true:
+     * upload/download: local script and server script encrypted, not allowed
+     * 
+     * decrypted:
+     * upload: local script not encrypted, script encrypted on upload
+     * download: server script encrypted, script decrypted on download
+     * 
+     * false:
+     * download: server script not encrypted, local script not encrypted
+     * upload: local script not encrypted, script encrypted on upload, if
+     * + server script is encrypted or
+     * + local script contains // #crypt
+     * 
+     * forceFalse:
+     * upload: local script unencrypted, server script unencrypted
      */
     encrypted?: string;
 
@@ -712,16 +726,12 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
 
 
 /**
- * There are problems with the encryption flag on all server versions lower than 8040.
- * To upload a script correctly to one of this versions, the encryption flag on server must
- * be set. The encryption flag on server will be set on all versions, if the flag
- * 'script.encrypted' is set.
- *
- * To check, if the script is encrypted on server, the script is downloaded by this function.
- * The download call returns the encryption flag on all versions. So we just have to check
- * this flag.
+ * To upload a script correctly to a version lower than 8040, 'script.encrypted' must be set.
+ * And then the behaviour of the versions 8040 and higher should be imitated, depending on
+ * script.encrypted (see documentation of that member).
+ * The script is downloaded to get information of the state of the server script.
  */
-function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
+function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<void> {
     return new Promise<void>((resolve, reject) => {
 
         if (connInfo && checkVersion(connInfo, VERSION_ENCRYPTION)) {
@@ -741,8 +751,9 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
             script.encrypted = 'false';
             return resolve();
         }
-        // script.encrypted === 'false' is default
-        // meaning, script is encrypted if it's encrypted on server or contains // #crypt
+
+        // script.encrypted === 'false' is default:
+        // script must be encrypted, if it's encrypted on server or contains // #crypt
 
         sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
             if (!value || value.length === 0) {
@@ -757,7 +768,11 @@ function checkVersionEncryption(sdsConnection: SDSConnection, params: scriptT[],
                 return resolve();
             }
             if (value[1] === 'false') {
-                script.encrypted = 'false';
+                if(script.localCode && script.localCode.indexOf('// #crypt') >= 0) {
+                    script.encrypted = 'decrypted';
+                } else {
+                    script.encrypted = 'false';
+                }
                 return resolve();
             }
             return reject(`Unexptected return value (${value}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
@@ -853,9 +868,9 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
         let script: scriptT = params[0];
 
 
-        // there are problems with encrypted scripts on versions lower than 8040
+        // there are problems with encryption on versions lower than 8040
         try {
-            await checkVersionEncryption(sdsConnection, [script], connInfo);
+            await encryptionWorkaround(sdsConnection, [script], connInfo);
         } catch (reason) {
             return reject(reason);
         }
