@@ -5,13 +5,10 @@ import { connect, Socket } from 'net';
 import * as crypto from 'crypto';
 import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
 import * as config from './config';
-import { Logger } from 'node-file-log';
 
 const reduce = require('reduce-for-promises');
 const fs = require('fs-extra');
 
-
-const logger = Logger.create('node-documents-scripting');
 
 const VERSION_MIN = '8034';
 const VERSION_PARAMS_GET = '8036';
