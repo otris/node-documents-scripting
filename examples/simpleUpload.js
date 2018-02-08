@@ -23,7 +23,11 @@ myScript.conflictMode = false;
  * Asynchronous function to upload the script
  */
 async function upload(paramLogin, paramScript){
-    await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.uploadScript);
-    console.log('finished serverOperations.uploadScript');
+    try {
+        await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.uploadScript);
+        console.log('finished serverOperations.uploadScript');
+    } catch(err) {
+        console.log(err);
+    }
 }
 upload(login, myScript);
