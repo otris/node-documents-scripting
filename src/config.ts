@@ -2,6 +2,14 @@ import * as fs from 'fs';
 import { Hash } from 'node-sds';
 
 
+/**
+ * For now only English and German.
+ * But actually it's possible to set another language.
+ */
+export enum Language {
+    German = 0,
+    English = 1,
+}
 
 export class ConnectionInformation {
 
@@ -11,13 +19,20 @@ export class ConnectionInformation {
     public username: string = '';
     public password: Hash | '' | undefined;
     public askForPassword: boolean = false;
-    public userId: number;
-    public sdsTimeout: number;
-    public configFile: string;
+    public userId?: number;
+    public sdsTimeout?: number;
+    public configFile?: string;
     public documentsVersion: string = '';
-    public decryptionPermission: boolean;
-    public lastError: string = '';
+    public decryptionPermission?: boolean;
+    /**
+     * Language has always been German, because if no language is set,
+     * the server sets the language to 0, and that is German.
+     * The existing behaviour shouldn't be changed, so the default
+     * language will still be German.
+     */
+    public language: Language = Language.German;
     public lastWarning: string = '';
+    public lastError: string = '';
 
     public resetLoginData() {
         this.server = '';
