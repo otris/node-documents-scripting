@@ -8,12 +8,7 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "program": "${workspaceRoot}/out/src/cmd.js",
-            "args": [
-                "upload",
-                "C:\\projekte\\vscode-live-demo\\.vscode\\launch.json",
-                "C:\\projekte\\vscode-live-demo\\subfolder\\test_VSCode_folder1.js"
-            ]
+            "program": "${workspaceRoot}/examples/simpleUpload.js"
         }
     ]
 }
