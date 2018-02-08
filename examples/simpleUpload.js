@@ -9,6 +9,7 @@ login.port = 11000;
 login.principal = 'dopaag';
 login.username = 'admin';
 login.password = '';
+login.language = config.Language.English;
 
 
 // Create script to upload
