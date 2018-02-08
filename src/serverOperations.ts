@@ -29,7 +29,7 @@ export class scriptT  {
      * A script is always a javascript file.
      */
     name: string;
-    path: string;
+    path?: string;
     /**
      * The source code of the script.
      * 
@@ -246,7 +246,10 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             } else {
                 reject('please set principal');
             }
-
+        }).then(() => {
+            if (loginData.language !== 0) {
+                return sdsConnection.setLanguage(loginData.language);
+            }
         }).then(() => {
             return sdsConnection.callClassOperation('PartnerNet.getVersionNo', []);
 
