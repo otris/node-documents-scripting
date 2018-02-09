@@ -363,14 +363,15 @@ export async function checkDecryptionPermission(sdsConnection: SDSConnection, pa
 }
 
 /**
- * Get names of all scripts on server.
+ * Get all scriptnames on server as scripts.
  * 
  * @param sdsConnection 
- * @param params 
+ * @param params category If set, scriptsnames from this category are returned.
+ * @returns {scriptT[]} List of scripts created from all scriptnames in category or all scriptnames on server.
  */
-export async function getScriptsFromServer(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+export async function getScriptsFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
+        sdsConnection.callClassOperation('PortalScript.getScriptNames', params).then((scriptNames) => {
             let scripts: scriptT[] = [];
             scriptNames.forEach(function(scriptname) {
                 let script: scriptT = new scriptT(scriptname, '');
@@ -388,11 +389,12 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
  * Get names of all scripts on server.
  * 
  * @param sdsConnection 
- * @param params 
+ * @param params category If set, scriptsnames from this category are returned.
+ * @returns {string[]} List of all scriptnames in category or all scriptnames on server.
  */
-export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<string[]> {
+export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.getScriptNames', []).then((scriptNames) => {
+        sdsConnection.callClassOperation('PortalScript.getScriptNames', params).then((scriptNames) => {
             let scripts: string[] = [];
             scriptNames.forEach(function(scriptname) {
                 scripts.push(scriptname);
