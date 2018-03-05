@@ -10,13 +10,13 @@ const reduce = require('reduce-for-promises');
 const fs = require('fs-extra');
 
 
-const VERSION_MIN = '8034';
-const VERSION_PARAMS_GET = '8036';
-const VERSION_ENCRYPTION = '8040';
-const VERSION_CATEGORIES = '8041';
-const VERSION_FIELD_TYPES = '8044';
-const VERSION_PARAMS_SET = '8044';
-const VERSION_SHOW_IMPORTS = '8047';
+export const VERSION_MIN = '8034';
+export const VERSION_PARAMS_GET = '8036';
+export const VERSION_ENCRYPTION = '8040';
+export const VERSION_CATEGORIES = '8041';
+export const VERSION_FIELD_TYPES = '8044';
+export const VERSION_PARAMS_SET = '8044';
+export const VERSION_SHOW_IMPORTS = '8047';
 
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
