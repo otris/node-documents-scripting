@@ -155,7 +155,7 @@ export async function serverSession(loginData: config.ConnectionInformation, par
         const server = loginData.server;
 
         // first try to get the login data
-        if (loginData.checkNoLoginData()) {
+        if (loginData.checkAnyLoginData()) {
 
             let onConnect: boolean = false;
 
@@ -190,7 +190,6 @@ export async function serverSession(loginData: config.ConnectionInformation, par
                     });
 
                 }).catch((reason) => {
-                    console.log('doLogin -> catch');
                     reject(reason);
                 });
             });
@@ -228,7 +227,7 @@ export async function serverSession(loginData: config.ConnectionInformation, par
                     } else if (err.code === "EADDRNOTAVAIL") {
                         reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check server and port in ".vscode/launch.json"`));
                     } else if (err.code === "ECONNREFUSED") {
-                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check port in ".vscode/launch.json"`));
+                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check if server is running`));
                     } else {
                         reject(err);
                     }
@@ -285,7 +284,7 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             }
 
         }).catch((reason) => {
-            console.log("call closeConnection from doLogin()...");
+            console.log("doLogin(): reject and close connection");
             if (reason.message) {
                 reject(reason.message + ` - check ".vscode/launch.json"`);
             } else {

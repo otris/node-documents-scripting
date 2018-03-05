@@ -48,7 +48,7 @@ export class ConnectionInformation {
         return true;
     }
 
-    public checkNoLoginData(): boolean {
+    public checkAnyLoginData(): boolean {
         if ('' === this.server && 0  === this.port && '' === this.principal && '' === this.username) {
             return false;
         }

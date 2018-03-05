@@ -53,9 +53,9 @@ async function executeAll() {
     login.server = '127.0.0.1';
     await upload(login, myScript, `Cannot connect to server: 127.0.0.1 port: 0 - check server and port in ".vscode/launch.json"`);
 
-    console.log("\ncheck invalid port");
+    console.log("\ncheck invalid port / server not running");
     login.port = 12000;
-    await upload(login, myScript, `Cannot connect to server: 127.0.0.1 port: 12000 - check port in ".vscode/launch.json"`);
+    await upload(login, myScript, `Cannot connect to server: 127.0.0.1 port: 12000 - check if server is running`);
     
     console.log("\ncheck only server and port set");
     login.port = 11000;
