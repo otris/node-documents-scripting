@@ -150,8 +150,12 @@ export async function serverSession(loginData: config.ConnectionInformation, par
             return reject('login data missing');
         }
 
+        // save name in local variable, so the correct name is set in error message in on('close')
+        // loginData.server might change when on('close') is called after reject() in on('error')
+        const server = loginData.server;
+
         // first try to get the login data
-        if (loginData.checkLoginData()) {
+        if (loginData.checkNoLoginData()) {
 
             let onConnect: boolean = false;
 
@@ -196,22 +200,38 @@ export async function serverSession(loginData: config.ConnectionInformation, par
             // function that is called on close event
             sdsSocket.on('close', (hadError: boolean) => {
                 if (hadError) {
-                    console.log('remote closed SDS connection due to error');
+                    // When an error occurred, the callbacks on('error') and on('close')
+                    // are called, but on('close') is called much later than on('error').
+                    //
+                    // TODO:
+                    // so would it be better to reject here and not in on('error')?
+                    // but we do not have the error information here...
+                    console.log(`SDS connection ${server} closed due to error`);
                 } else {
+                    //
                 }
             });
 
             // callback on error
             // function that is called on error event
             sdsSocket.on('error', (err: any) => {
-                console.log('callback socket.on(error)');
-                console.log(err);
+                console.log(`Error in SDS connection ${loginData.server}`);
+                // console.log(err);
+
                 // only reject here if on-connect couldn't start
                 if(onConnect) {
                     // reject is executed in on('connect') callback 
                 } else {
                     // on('connect') is not executed, so we must reject here
-                    reject(err);
+                    if (err.code === "ENOTFOUND") {
+                        reject(new Error(`Cannot connect to "${loginData.server}" - check server in ".vscode/launch.json"`));
+                    } else if (err.code === "EADDRNOTAVAIL") {
+                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check server and port in ".vscode/launch.json"`));
+                    } else if (err.code === "ECONNREFUSED") {
+                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check port in ".vscode/launch.json"`));
+                    } else {
+                        reject(err);
+                    }
                 }
             });
 
@@ -244,7 +264,7 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             if (loginData.principal.length > 0) {
                 return sdsConnection.changePrincipal(loginData.principal);
             } else {
-                reject('please set principal');
+                return Promise.reject('Principal is missing');
             }
         }).then(() => {
             if (loginData.language !== 0) {
@@ -265,7 +285,12 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             }
 
         }).catch((reason) => {
-            reject(reason + ` - check ".vscode/launch.json"`);
+            console.log("call closeConnection from doLogin()...");
+            if (reason.message) {
+                reject(reason.message + ` - check ".vscode/launch.json"`);
+            } else {
+                reject(reason + ` - check ".vscode/launch.json"`);
+            }
             closeConnection(sdsConnection).catch((reason) => {
                 console.log(reason);
             });
