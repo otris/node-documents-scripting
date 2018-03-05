@@ -48,6 +48,13 @@ export class ConnectionInformation {
         return true;
     }
 
+    public checkNoLoginData(): boolean {
+        if ('' === this.server && 0  === this.port && '' === this.principal && '' === this.username) {
+            return false;
+        }
+        return true;
+    }
+
 
     public dispose() {
         //
