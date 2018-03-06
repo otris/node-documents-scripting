@@ -1115,7 +1115,10 @@ export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         return reduce(scripts, function(numscripts: number, script: scriptT) {
             if (!script.path) {
-                return reject('script path missing');
+                // if path not set, script will not be saved,
+                // so the path member could be used to prevent
+                // single scripts of script-list from beeing saved
+                return resolve();
             }
             return writeFileEnsureDir(script.serverCode, script.path).then(() => {
                 script.localCode = script.serverCode;
