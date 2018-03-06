@@ -1083,10 +1083,13 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
  * @param filename 
  * @param allowSubFolder 
  */
-export async function writeFileEnsureDir(data: any, filename: string): Promise<void> {
+export async function writeFileEnsureDir(data: any, filename: string | undefined): Promise<boolean> {
     console.log('writeFile');
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
+        if (!filename || filename.length === 0) {
+            return resolve(false);
+        }
         const folder = path.dirname(filename);
 
         if (folder) {
@@ -1099,7 +1102,7 @@ export async function writeFileEnsureDir(data: any, filename: string): Promise<v
                             reject(error);
                         } else {
                             console.log(`wrote file ${filename}`);
-                            resolve();
+                            resolve(true);
                         }
                     });
                 }
@@ -1114,18 +1117,15 @@ export async function writeFileEnsureDir(data: any, filename: string): Promise<v
 export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         return reduce(scripts, function(numscripts: number, script: scriptT) {
-            if (!script.path) {
-                // if path not set, script will not be saved,
-                // so the path member could be used to prevent
-                // single scripts of script-list from beeing saved
-                return resolve();
-            }
-            return writeFileEnsureDir(script.serverCode, script.path).then(() => {
+            // if script.path is not set, script will not be saved in writeFileEnsureDir(),
+            // so the path member can be used to prevent single scripts of the scripts-array
+            // from beeing saved
+            return writeFileEnsureDir(script.serverCode, script.path).then((saved) => {
                 script.localCode = script.serverCode;
                 if(script.conflictMode) {
                     script.lastSyncHash = crypto.createHash('md5').update(script.localCode || '').digest('hex');
                 }
-                return numscripts + 1;
+                return numscripts + (saved? 1 : 0);
             });
         }, 0).then((numscripts: number) => {
             // this section is exectuted once after all writeFileEnsureDir calls are finished
