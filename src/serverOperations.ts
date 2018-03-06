@@ -1114,8 +1114,8 @@ export async function writeFileEnsureDir(data: any, filename: string | undefined
 }
 
 
-export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
         return reduce(scripts, function(numscripts: number, script: scriptT) {
             // if script.path is not set, script will not be saved in writeFileEnsureDir(),
             // so the path member can be used to prevent single scripts of the scripts-array
@@ -1129,7 +1129,7 @@ export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<void> {
             });
         }, 0).then((numscripts: number) => {
             // this section is exectuted once after all writeFileEnsureDir calls are finished
-            resolve();
+            resolve(numscripts);
         }).catch((error: any) => {
             reject(error);
         });
