@@ -25,7 +25,7 @@ const stripJsonComments = require('strip-json-comments');
  * let files: string[] = resolveWildcardPath("src/test/*.js");
  *
  * // Use wildcards with recursion
- * let files: string[] = resolveWildcardPath("src/test/ ** /*.js"); // ignore the spacec before and after the "**"
+ * let files: string[] = resolveWildcardPath("src/test/ ** /*.js"); // ignore the space before and after the "**"
  */
 function resolveWildcardPath(wildcardPath: string): string[] {
     // resolve wildcards in the file path
@@ -250,7 +250,7 @@ program
                 runAll(loginData, filesToRun);
             }
         } catch (err) {
-            console.log(`Error occured: ${err.message}`);
+            console.log(`Error occurred: ${err.message}`);
         }
     });
 
@@ -293,11 +293,11 @@ program
 
             upload(loginData, filesToUpload);
         } catch (err) {
-            console.log(`Error occured: ${err.message}`);
+            console.log(`Error occurred: ${err.message}`);
         }
     });
 
- 
+
 program.parse(process.argv);
 
 // if (process.argv.length > 2) {

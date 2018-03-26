@@ -278,7 +278,7 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             if(!docVersion) {
                 reject(`This command is only available on DOCUMENTS`);
             } else if(Number(VERSION_MIN) > Number(docVersion)) {
-                reject(`Current version: ${docVersion} Required verson: ${VERSION_MIN}`);
+                reject(`Current version: ${docVersion} Required version: ${VERSION_MIN}`);
             } else {
                 resolve(sdsConnection);
             }
