@@ -32,7 +32,7 @@ export class scriptT  {
     path?: string;
     /**
      * The source code of the script.
-     * 
+     *
      * If serverCode is set after calling uploadScript, localCode contains the
      * local code of the script and serverCode the code on server.
      */
@@ -49,20 +49,20 @@ export class scriptT  {
     /**
      * Encryption state of local and server script on upload/download.
      * Value can be true, decrypted, false or forceFalse
-     * 
+     *
      * true:
      * upload/download: local script and server script encrypted, not allowed
-     * 
+     *
      * decrypted:
      * upload: local script not encrypted, script encrypted on upload
      * download: server script encrypted, script decrypted on download
-     * 
+     *
      * false:
      * download: server script not encrypted, local script not encrypted
      * upload: local script not encrypted, script encrypted on upload, if
      * + server script is encrypted or
      * + local script contains // #crypt
-     * 
+     *
      * forceFalse:
      * upload: local script unencrypted, server script unencrypted
      */
@@ -75,11 +75,11 @@ export class scriptT  {
 
     /**
      * Default: true
-     * 
+     *
      * If the function 'uploadScript' is called with a script in conflict
      * mode, the hash value is used to check, if the source code of the
      * script on server has changed since last up- or download.
-     * 
+     *
      * If a script in conflict mode was changed on server, it won't
      * be uploaded, instead the member 'conflict' will be set to true.
      */
@@ -137,8 +137,8 @@ export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo: 
  * and closes the connection.
  * The operations that can be called on server using this function are implemented
  * below.
- * 
- * @param loginData 
+ *
+ * @param loginData
  * @param param input parameter of the operation
  * @param serverOperation the operation to be called on server, should be one of the
  * functions that are implemented below
@@ -171,7 +171,7 @@ export async function serverSession(loginData: config.ConnectionInformation, par
                 onConnect = true;
 
                 doLogin(loginData, sdsSocket).then((sdsConnection) => {
-                    
+
                     // call serverOperation and then close the connection in any case
                     serverOperation(sdsConnection, param, loginData).then((value) => {
                         closeConnection(sdsConnection).then(() => {
@@ -219,7 +219,7 @@ export async function serverSession(loginData: config.ConnectionInformation, par
 
                 // only reject here if on-connect couldn't start
                 if(onConnect) {
-                    // reject is executed in on('connect') callback 
+                    // reject is executed in on('connect') callback
                 } else {
                     // on('connect') is not executed, so we must reject here
                     if (err.code === "ENOTFOUND") {
@@ -244,9 +244,9 @@ export async function serverSession(loginData: config.ConnectionInformation, par
 /**
  * Connect to server.
  * This function is called in function sdsSession before the operation is called.
- * 
- * @param loginData 
- * @param sdsSocket 
+ *
+ * @param loginData
+ * @param sdsSocket
  */
 async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socket): Promise<SDSConnection> {
     return new Promise<SDSConnection>((resolve, reject) => {
@@ -257,7 +257,7 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
             let username = loginData.username;
             let password: '' | Hash = loginData.password? loginData.password : '';
             return sdsConnection.changeUser(username, password);
-            
+
         }).then(userId => {
             loginData.userId = userId;
             if (loginData.principal.length > 0) {
@@ -302,8 +302,8 @@ async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socke
  * Close the connection to the server.
  * This function is called in function sdsSession after the operation
  * has been called.
- * 
- * @param sdsConnection 
+ *
+ * @param sdsConnection
  */
 async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -322,8 +322,8 @@ async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
 
 /**
  * Server Operations
- * 
- * 
+ *
+ *
  * The following functions are the operations that can be called
  * on server using the function sdsSession.
  */
@@ -348,7 +348,7 @@ export async function getSourceCodeForEditor(sdsConnection: SDSConnection, param
 /**
  * Returns the current build version that is used with the given login data.
  * This function is called in sdsSession.
- * 
+ *
  * @param sdsConnection Set by function sdsSession
  * @param params empty
  */
@@ -366,10 +366,10 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
 
 /**
  * Check if user has the permission to decrypt scripts.
- * 
- * @param sdsConnection 
- * @param params 
- * @param connInfo 
+ *
+ * @param sdsConnection
+ * @param params
+ * @param connInfo
  */
 export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
@@ -388,8 +388,8 @@ export async function checkDecryptionPermission(sdsConnection: SDSConnection, pa
 
 /**
  * Get all scriptnames on server as scripts.
- * 
- * @param sdsConnection 
+ *
+ * @param sdsConnection
  * @param params category If set, scriptsnames from this category are returned.
  * @returns {scriptT[]} List of scripts created from all scriptnames in category or all scriptnames on server.
  */
@@ -411,8 +411,8 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
 
 /**
  * Get names of all scripts on server.
- * 
- * @param sdsConnection 
+ *
+ * @param sdsConnection
  * @param params category If set, scriptsnames from this category are returned.
  * @returns {string[]} List of all scriptnames in category or all scriptnames on server.
  */
@@ -431,7 +431,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 }
 
 
-    
+
 
 
 
@@ -439,15 +439,15 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 /**
  * Get fieldnames of a filetype and create interface declaration for TypeScript
  * definition file.
- * 
- * @param sdsConnection 
+ *
+ * @param sdsConnection
  * @param params the file type
  *
  * @return string containing the interface declaration for the file type
  */
 export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        
+
         // check parameter
         if (!params || 0 >= params.length || 0 >= params[0].length) {
             return reject('wrong parameter in getFileTypeInterface');
@@ -476,7 +476,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             let fieldParams = '';
             const steps = fieldTypesVersion? 2 : 1;
             const length = fieldTypesVersion? fieldInfo.length-1 : fieldInfo.length;
-            
+
             // fieldNames[0] contains error message, that is read in node-sds
             for (let i = 1; i < length; i += steps) {
                 fieldName = fieldInfo[i];
@@ -507,8 +507,8 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
 /**
  * Get fieldnames of all file types and create a string that contains the
  * TypeScript definition file content for all file types
- * 
- * @param sdsConnection 
+ *
+ * @param sdsConnection
  * @param params empty
  */
 export async function getFileTypesTSD(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
@@ -578,9 +578,9 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
 
 /**
  * Set script parameters
- * 
- * @param sdsConnection 
- * @param params 
+ *
+ * @param sdsConnection
+ * @param params
  */
 function setScriptInfoFromJSON(sdsConnection: SDSConnection, params: string[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -653,9 +653,9 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
 
 /**
  * Download script.
- * 
- * @param sdsConnection 
- * @param params 
+ *
+ * @param sdsConnection
+ * @param params
  */
 export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
@@ -700,7 +700,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                         // todo warning
                         resolve([script]);
                     });
-                    
+
 
                 } else if ('true' === retval[1]) {
                     reject(new Error(ERROR_DECRYPT_PERMISSION));
@@ -716,9 +716,9 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
 /**
  * Download all scripts from given list.
- * 
+ *
  * @return Array containing all downloaded scripts, including the source-code.
- * @param sdsConnection 
+ * @param sdsConnection
  * @param params Array containing all scripts to download.
  */
 export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
@@ -818,9 +818,9 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
  * If not, a script containing the server source code and the server
  * encrypt state is returned.
  * Both cases are resolved. Reject only in case of error.
- * 
- * @param sdsConnection 
- * @param params 
+ *
+ * @param sdsConnection
+ * @param params
  */
 function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
@@ -857,7 +857,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
             // get hash value from server script code
             const serverCode = ensureNoBOM(value[0]);
             let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
-            
+
             // compare hash value
             if(script.lastSyncHash !== serverHash) {
                 // server code has been changed
@@ -868,7 +868,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 
             // script has not changed on server
             return resolve([script]);
-            
+
         }).catch((reason) => {
             reject(reason);
         });
@@ -880,9 +880,9 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 
 /**
  * Upload Script.
- * 
- * @param sdsConnection 
- * @param params 
+ *
+ * @param sdsConnection
+ * @param params
  */
 export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
@@ -969,9 +969,9 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
 
 /**
  * Upload all scripts from given list.
- * 
+ *
  * @return Array containing all uploaded scripts, should be equal to params.
- * @param sdsConnection 
+ * @param sdsConnection
  * @param params Array containing all scripts to upload.
  */
 export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
@@ -1011,16 +1011,16 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
 
 /**
  * Run script.
- * 
- * @param sdsConnection 
- * @param params 
+ *
+ * @param sdsConnection
+ * @param params
  */
 export async function runScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
         if(0 === params.length) {
             resolve([]);
         } else {
-            
+
             let script: scriptT = params[0];
             sdsConnection.callClassOperation('PortalScript.runScript', [script.name]).then((value) => {
                 if(!value || 0 === value.length) {
@@ -1039,9 +1039,9 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[],
 
 /**
  * Execute all scripts in given list on server.
- * 
+ *
  * @return Array containing all executed scripts, including the output.
- * @param sdsConnection 
+ * @param sdsConnection
  * @param params Array containing all scripts to execute.
  */
 export async function runAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
@@ -1068,8 +1068,8 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
 
 /**
  * Helper functions - no server call
- * 
- * 
+ *
+ *
  * The following functions are only some additional helper functions.
  * They don't do any call on server.
  */
@@ -1078,10 +1078,10 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
 
 
 /**
- * 
- * @param data 
- * @param filename 
- * @param allowSubFolder 
+ *
+ * @param data
+ * @param filename
+ * @param allowSubFolder
  */
 export async function writeFileEnsureDir(data: any, filename: string | undefined): Promise<boolean> {
     console.log('writeFile');
@@ -1170,7 +1170,7 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
 export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true): scriptT[] {
     let scripts: scriptT[] = [];
     const filepaths = readDirSync(dir, subfolders);
-    
+
     // resolve file paths to scriptT-objects
     filepaths.forEach((file) => {
         if (fs.existsSync(file) && '.js' === path.extname(file)) {

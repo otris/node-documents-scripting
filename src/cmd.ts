@@ -114,7 +114,7 @@ async function run(loginData: config.ConnectionInformation, file: string, upload
 }
 
 /**
- * 
+ *
  * @param loginData - Login data for authentication with to DOCUMENTS-server
  * @param files - File paths or the file names to run
  * @param [uploadScript] - Specifies whether to upload the script before running
