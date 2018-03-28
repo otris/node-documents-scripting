@@ -1036,6 +1036,32 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[],
     });
 }
 
+/**
+ * Run script.
+ *
+ * @param sdsConnection
+ * @param params
+ */
+export async function debugScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+    return new Promise<scriptT[]>((resolve, reject) => {
+        if(0 === params.length) {
+            resolve([]);
+        } else {
+
+            let script: scriptT = params[0];
+            sdsConnection.callClassOperation('PortalScript.debugScript', [script.name]).then((value) => {
+                if(!value || 0 === value.length) {
+                    reject('could not find ' + params[0] + ' on server');
+                } else {
+                    script.output = value.join(os.EOL);
+                    resolve([script]);
+                }
+            }).catch((reason) => {
+                reject(reason);
+            });
+        }
+    });
+}
 
 /**
  * Execute all scripts in given list on server.
