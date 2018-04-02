@@ -666,7 +666,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
             let script: scriptT = params[0];
 
             sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((retval) => {
-                if(!retval[0] || typeof(retval[0]) != 'string') {
+                if(!retval[0] || typeof(retval[0]) !== 'string') {
                     return reject('could not find ' + script.name + ' on server');
                 }
 
@@ -1173,7 +1173,7 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
     let results: string[] = [];
     let list = fs.readdirSync(dir);
 
-    list.forEach(function (elem: any) {
+    list.forEach(function(elem: any) {
         elem = path.join(dir, elem);
 
         if (fs.statSync(elem).isFile()) {
@@ -1243,14 +1243,11 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
     } else {
         if("VERSION_CATEGORIES" === warning) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
-        }
-        else if("VERSION_PARAMS_SET" === warning) {
+        } else if("VERSION_PARAMS_SET" === warning) {
             loginData.lastWarning = `For uploading parameter DOCUMENTS ${VERSION_PARAMS_SET} is required`;
-        }
-        else if("VERSION_PARAMS_GET" === warning) {
+        } else if("VERSION_PARAMS_GET" === warning) {
             loginData.lastWarning = `For downloading parameter DOCUMENTS ${VERSION_PARAMS_GET} is required`;
-        }
-        else if("VERSION_SHOW_IMPORTS" === warning) {
+        } else if("VERSION_SHOW_IMPORTS" === warning) {
             loginData.lastWarning = `For showing imports DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`;
         }
 

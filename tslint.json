@@ -1,0 +1,42 @@
+{
+  "extends": [
+    "tslint:recommended"
+  ],
+  "rules": {
+    "quotemark": false,
+    "no-console": [
+      false
+    ],
+    "no-bitwise": false,
+    "interface-name": [
+      true,
+      "never-prefix"
+    ],
+    "max-classes-per-file": [
+      false
+    ],
+    "variable-name": [
+      true,
+      "allow-leading-underscore"
+    ],
+    "object-literal-key-quotes": false,
+    "object-literal-sort-keys": false,
+    "arrow-parens": false,
+    "triple-equals":true,
+    "only-arrow-functions": [
+      false
+    ],
+    "trailing-comma": [
+      false // this sucks
+    ],
+    "max-line-length": [false],
+    "no-consecutive-blank-lines": [false],
+    "ordered-imports": false,
+    "no-var-requires": false,
+    "class-name": false,
+    "member-access": false,
+    "whitespace": false,
+    "prefer-const": false,
+    "no-shadowed-variable": false
+  }
+}

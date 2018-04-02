@@ -29,5 +29,8 @@
     "reduce-for-promises": "^1.2.1",
     "strip-json-comments": "^2.0.1",
     "typescript": "2.4.1"
+  },
+  "devDependencies": {
+    "tslint": "5.3.2"
   }
 }
