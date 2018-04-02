@@ -113,6 +113,8 @@ export class scriptT  {
     parameters?: string;
     downloadParameters?: boolean;
 
+    duplicate?: boolean;
+
     constructor(name: string, path?: string, localCode?: string) {
         this.name = name;
         if (path) {
@@ -1200,9 +1202,14 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
     // resolve file paths to scriptT-objects
     filepaths.forEach((file) => {
         if (fs.existsSync(file) && '.js' === path.extname(file)) {
-            scripts.push(
-                new scriptT(path.parse(file).name, file, fs.readFileSync(file).toString())
-            );
+            const scriptName = path.parse(file).name;
+            const duplicate = scripts.find(s => s.name === scriptName);
+            const newScript = new scriptT(scriptName, file, fs.readFileSync(file).toString());
+            if (duplicate) {
+                duplicate.duplicate = true;
+                newScript.duplicate = true;
+            }
+            scripts.push(newScript);
         }
     });
 
