@@ -106,11 +106,21 @@ export class scriptT  {
      * The category of the script on server.
      */
     category?: string;
+    /**
+     * Set to true, if the category member should be set after the script is downloaded.
+     * Only for version check. If this is set to true, and the version is to old, a
+     * warning is set.
+     */
+    getCategories?: boolean;
 
     /**
      * json string describing the parameters
      */
     parameters?: string;
+    /**
+     * Set to true, if the user wants to download the parameters
+     * when a script is downloaded.
+     */
     downloadParameters?: boolean;
 
     duplicate?: boolean;
@@ -679,6 +689,7 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     let scriptPath;
 
                     // get category for category as folder
+                    // if (script.getCategories && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES"))
                     if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                         script.category = retval[2];
                     }
