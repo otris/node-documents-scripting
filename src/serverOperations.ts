@@ -18,6 +18,10 @@ export const VERSION_FIELD_TYPES = '8044';
 export const VERSION_PARAMS_SET = '8044';
 export const VERSION_SHOW_IMPORTS = '8047';
 
+export const CONFLICT_SOURCE_CODE = 0x1;
+export const CONFLICT_CATEGORY = 0x2;
+
+
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 const ERROR_DECRYPT_PERMISSION = 'For downloading encrypted scripts the decryption PEM file is required';
@@ -91,11 +95,16 @@ export class scriptT  {
      */
     lastSyncHash?: string;
     /**
-     * conflict is set to true, if uploadScript was called with this script,
+     * Bit pattern.
+     *
+     * CONFLICT_SOURCE_CODE is set, if uploadScript was called for this script,
      * but the source code of the script on server has been changed since
      * last up- or download.
+     *
+     * CONFLICT_CATEGORY is set, if uploadScript was called for this script,
+     * but the category is different on server.
      */
-    conflict?: boolean;
+    conflict = 0x0;
     /**
      * If this member is set to true, the script will be uploaded, even if
      * it's in conflict mode and the source code was changed on server.
@@ -852,7 +861,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 
             if(!value || value.length === 0) {
                 // script not on server
-                script.conflict = true;
+                script.conflict |= CONFLICT_SOURCE_CODE;
                 return resolve([script]);
             }
 
@@ -862,24 +871,26 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 
             if(value && 'true' === value[1]) {
                 // script encrypted on server and no decryption pem available
-                script.conflict = true;
+                script.conflict |= CONFLICT_SOURCE_CODE;
                 script.encrypted = value[1];
-                return resolve([script]);
+            } else {
+                // get hash value from server script code
+                const serverCode = ensureNoBOM(value[0]);
+                let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
+
+                // compare hash value
+                if(script.lastSyncHash !== serverHash) {
+                    // server code has been changed
+                    script.conflict |= CONFLICT_SOURCE_CODE;
+                    script.serverCode = serverCode;
+                }
             }
 
-            // get hash value from server script code
-            const serverCode = ensureNoBOM(value[0]);
-            let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
-
-            // compare hash value
-            if(script.lastSyncHash !== serverHash) {
-                // server code has been changed
-                script.serverCode = serverCode;
-                script.conflict = true;
-                return resolve([script]);
+            // compare category
+            if(value[2] && value[2] !== script.category) {
+                script.conflict |= CONFLICT_CATEGORY;
             }
 
-            // script has not changed on server
             return resolve([script]);
 
         }).catch((reason) => {
