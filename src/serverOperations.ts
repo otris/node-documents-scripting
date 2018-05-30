@@ -1197,7 +1197,7 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
     let results: string[] = [];
     let list = fs.readdirSync(dir);
 
-    for (var elem of list) { // for-of loops are easier to debug
+    for (let elem of list) { // for-of loops are easier to debug
         elem = path.join(dir, elem);
 
         if (fs.existsSync(elem)) { // handle broken symlinks
@@ -1207,7 +1207,7 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
                 results = results.concat(readDirSync(elem, rec));
             }
         }
-    };
+    }
 
     return results;
 }
