@@ -455,7 +455,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 /**
  * @param params e.g. ["DlcFileType", "Title='crmNote'"], ["PortalScript", "Name='myScript'"],
- * ["DlcFileType"] or ["PortalScript"]
+ * ["DlcFileType", ""] or ["PortalScript", ""]
  * @return string array, first element is the xml as string
  */
 export async function exportXML(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
