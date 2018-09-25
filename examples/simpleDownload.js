@@ -6,7 +6,7 @@ const config = require('../out/src/config');
 let login = new config.ConnectionInformation();
 login.server = '127.0.0.1';
 login.port = 11000;
-login.principal = 'dopaag';
+login.principal = 'relations';
 login.username = 'admin';
 login.password = '';
 
