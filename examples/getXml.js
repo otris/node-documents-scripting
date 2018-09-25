@@ -13,7 +13,7 @@ login.language = config.Language.English;
 
 async function exportXML(paramLogin){
     try {
-        var myXML = await serverOperations.serverSession(paramLogin, ["DlcFileType", "(Title='Test'||Title='Firma')"], serverOperations.exportXML);
+        var myXML = await serverOperations.serverSession(paramLogin, ["DlcFileType", "(Title='crmNote'||Title='crmCase')"], serverOperations.exportXML);
         console.log(myXML[0].toString());
     } catch(err) {
         console.log(err);
