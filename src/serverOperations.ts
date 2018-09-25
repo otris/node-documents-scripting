@@ -453,7 +453,37 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 
+/**
+ * @param params e.g. ["DlcFileType", "Title='crmNote'"], ["PortalScript", "Name='myScript'"],
+ * ["DlcFileType"] or ["PortalScript"]
+ * @return string array, first element is the xml as string
+ */
+export async function exportXML(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('Global.exportXML', params).then((xml) => {
+            resolve(xml);
+        }).catch((reason) => {
+            reject('exportXML failed: ' + reason);
+        });
+    });
+}
 
+
+/**
+ * @param params empty for now, later: the categories
+ * @return string array containing all filetypenames
+ */
+export async function getFileTypeNames(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
+            // first entry contains the error message that is read in node-sds
+            fileTypeNames.splice(0, 1);
+            resolve(fileTypeNames);
+        }).catch((reason) => {
+            reject('getFileTypeNames failed: ' + reason);
+        });
+    });
+}
 
 
 
@@ -480,7 +510,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
         // operation
         let operation = 'getFieldNames';
 
-        // check version, later documents version have
+        // check version, later documents versions include a
         // function that also returns the types
         const fieldTypesVersion = checkVersion(connInfo, VERSION_FIELD_TYPES, "VERSION_FIELD_TYPES");
 

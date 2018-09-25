@@ -8,7 +8,7 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "program": "${workspaceRoot}/examples/invalidLogins.js"
+            "program": "${workspaceRoot}/examples/getXml.js"
         }
     ]
 }
