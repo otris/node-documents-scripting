@@ -28,6 +28,22 @@ async function getFileTypeNames(paramLogin){
     }
 }
 
+async function exportXMLSingleFiles(paramLogin) {
+    try {
+        var names = await serverOperations.serverSession(paramLogin, [], serverOperations.getFileTypeNames);
+        var className = "DlcFileType";
+        var input = names.map((name, i) => {
+            return new serverOperations.xmlExport(className, `Title='${names[i]}'`, names[i]);
+        });
+        await serverOperations.serverSession(paramLogin, input, serverOperations.exportXMLSingleFiles);
+        console.log(`Filename: ${input[0].fileName}`);
+        console.log(`Content: ${input[0].content.slice(0, 500)} ...\n ...`);
+    } catch(err) {
+        console.log(err);
+    }
+}
 
-getFileTypeNames(login);
+
 // exportXML(login);
+// getFileTypeNames(login);
+exportXMLSingleFiles(login);

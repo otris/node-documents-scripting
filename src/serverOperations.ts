@@ -146,6 +146,9 @@ export class scriptT  {
 }
 
 
+export class xmlExport {
+    constructor(public className: string, public filter: string, public fileName: string, public content: string, public files?: string[]) {}
+}
 
 
 
@@ -454,11 +457,20 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 
 /**
- * @param params e.g. ["DlcFileType", "Title='crmNote'"], ["PortalScript", "Name='myScript'"],
- * ["DlcFileType", ""] or ["PortalScript", ""]
+ * Generate xml for filetypes or portal scripts
+ *
+ * @param params Simply a string-array with two entries.
+ * We could use xmlExport-type, but actually only a class-name and a filter is required.
+ * Some examples:
+ * ["DlcFileType", "Title='crmNote'"],
+ * ["PortalScript", "Name='myScript'"],
+ * ["DlcFileType", ""],
+ * ["PortalScript", ""]
+ * ["DlcFileType", "(Title='crmNote'||Title='crmCase')"]
+ *
  * @return string array, first element is the xml as string
  */
-export async function exportXML(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+export async function exportXML(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         sdsConnection.callClassOperation('Global.exportXML', params).then((xml) => {
             resolve(xml);
@@ -467,6 +479,28 @@ export async function exportXML(sdsConnection: SDSConnection, params: string[], 
         });
     });
 }
+
+
+export async function exportXMLSingleFiles(sdsConnection: SDSConnection, params: xmlExport[]): Promise<void> {
+    return new Promise<void>(async (resolve, reject) => {
+        try {
+            // don't use forEach here, because await won't
+            // work as required with forEach
+            for (const current of params) {
+                const returnValue = await exportXML(sdsConnection, [current.className, current.filter]);
+                // first value contains the xml
+                current.content = returnValue[0];
+                // paths to the blobs
+                current.files = returnValue.slice(1);
+            }
+        } catch (reason) {
+            return reject(reason);
+        }
+        return resolve();
+    });
+}
+
+
 
 
 /**
