@@ -481,7 +481,7 @@ export async function exportXML(sdsConnection: SDSConnection, params: string[]):
 }
 
 
-export async function exportXMLSingleFiles(sdsConnection: SDSConnection, params: xmlExport[]): Promise<void> {
+export async function exportXMLSeperateFiles(sdsConnection: SDSConnection, params: xmlExport[]): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         try {
             // don't use forEach here, because await won't
