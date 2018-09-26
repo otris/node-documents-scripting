@@ -15,7 +15,7 @@ export const VERSION_PARAMS_GET = '8036';
 export const VERSION_ENCRYPTION = '8040';
 export const VERSION_CATEGORIES = '8041';
 export const VERSION_FIELD_TYPES = '8044';
-export const VERSION_PARAMS_SET = '8044';
+export const VERSION_PARAMS_SET = '8067';
 export const VERSION_SHOW_IMPORTS = '8047';
 
 export const CONFLICT_SOURCE_CODE = 0x1;
