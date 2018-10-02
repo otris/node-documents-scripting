@@ -147,7 +147,7 @@ export class scriptT  {
 
 
 export class xmlExport {
-    constructor(public className: string, public filter: string, public fileName: string, public content: string, public files?: string[]) {}
+    constructor(public className: string, public filter: string, public fileName: string, public content?: string, public files?: string[]) {}
 }
 
 
