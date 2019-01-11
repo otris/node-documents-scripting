@@ -480,6 +480,15 @@ export async function exportXML(sdsConnection: SDSConnection, params: string[]):
     });
 }
 
+export async function doMaintenance(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        sdsConnection.callClassOperation('Global.doMaintenance', params).then((returnValue) => {
+            resolve(returnValue);
+        }).catch((reason) => {
+            reject('doMaintenance failed: ' + reason);
+        });
+    });
+}
 
 export async function exportXMLSeperateFiles(sdsConnection: SDSConnection, params: xmlExport[]): Promise<any[]> {
     return new Promise<any[]>(async (resolve, reject) => {
