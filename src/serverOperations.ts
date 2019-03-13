@@ -1275,7 +1275,13 @@ export function readDirSync(dir: string, rec: boolean = true): string[] {
     for (let elem of list) { // for-of loops are easier to debug
         elem = path.join(dir, elem);
 
-        if (fs.existsSync(elem)) { // handle broken symlinks
+        const stats = fs.lstatSync(elem);
+        if (stats.isSymbolicLink()) {
+            // returns the path where the symlink points to
+            elem = fs.readlinkSync(elem);
+        }
+
+        if (fs.existsSync(elem)) {
             if (fs.statSync(elem).isFile()) {
                 results.push(elem);
             } else if (rec) {
