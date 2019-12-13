@@ -6,7 +6,7 @@ import * as config from "./config";
 const reduce = require("reduce-for-promises");
 const fs = require("fs-extra");
 
-const sds = require("node-sds-test");
+const sds = require("@otris/node-sds");
 const ParameterNames = sds.ParameterNames;
 export type SDSConnection = any;
 export type SDSResponse = any;

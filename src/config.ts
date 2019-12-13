@@ -1,4 +1,4 @@
-const sds = require("node-sds-test");
+const sds = require("@otris/node-sds");
 export type Hash = any;
 
 const JANUS_CRYPTMD5_SALT: string = 'o3';
