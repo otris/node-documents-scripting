@@ -1,6 +1,16 @@
-import * as fs from 'fs';
-import { Hash } from 'node-sds';
+const sds = require("node-sds-test");
+export type Hash = any;
 
+const JANUS_CRYPTMD5_SALT: string = 'o3';
+
+export type JanusPassword = '' | Hash;
+
+export function getJanusPassword(val: string): JanusPassword {
+    if (val.length > 0) {
+        return sds.crypt_md5(val, JANUS_CRYPTMD5_SALT);
+    }
+    return '';
+}
 
 /**
  * For now only English and German.
@@ -11,19 +21,21 @@ export enum Language {
     English = 1,
 }
 
-export class ConnectionInformation {
-
+export class Connection {
     public server: string = '';
     public port: number = 0;
-    public principal: string = '';
     public username: string = '';
     public password: Hash | '' | undefined;
+    public principal: string = '';
+    public sdsTimeout?: number;
+}
+
+export class ConnectionInformation extends Connection {
+
     public askForPassword: boolean = false;
     public userId?: number;
-    public sdsTimeout?: number;
     public configFile?: string;
     public documentsVersion: string = '';
-    public decryptionPermission?: boolean;
     /**
      * Language has always been German, because if no language is set,
      * the server sets the language to 0, and that is German.

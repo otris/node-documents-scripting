@@ -1,30 +1,30 @@
-import * as os from 'os';
-import * as path from 'path';
-import { connect, Socket } from 'net';
-// let lastSyncHash = crypto.createHash('md5').update(data).digest("hex");
-import * as crypto from 'crypto';
-import { SDSConnection, Hash, crypt_md5, getJanusPassword } from 'node-sds';
-import * as config from './config';
+import * as os from "os";
+import * as path from "path";
+import * as crypto from "crypto";
+import * as config from "./config";
 
-const reduce = require('reduce-for-promises');
-const fs = require('fs-extra');
+const reduce = require("reduce-for-promises");
+const fs = require("fs-extra");
 
+const sds = require("node-sds-test");
+const ParameterNames = sds.ParameterNames;
+export type SDSConnection = any;
+export type SDSResponse = any;
 
-export const VERSION_MIN = '8034';
-export const VERSION_PARAMS_GET = '8036';
-export const VERSION_ENCRYPTION = '8040';
-export const VERSION_CATEGORIES = '8041';
-export const VERSION_FIELD_TYPES = '8044';
-export const VERSION_PARAMS_SET = '8067';
-export const VERSION_SHOW_IMPORTS = '8047';
+export const VERSION_MIN = "8034";
+export const VERSION_PARAMS_GET = "8036";
+export const VERSION_ENCRYPTION = "8040";
+export const VERSION_CATEGORIES = "8041";
+export const VERSION_FIELD_TYPES = "8044";
+export const VERSION_PARAMS_SET = "8067";
+export const VERSION_SHOW_IMPORTS = "8047";
 
 export const CONFLICT_SOURCE_CODE = 0x1;
 export const CONFLICT_CATEGORY = 0x2;
 
-
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
-const ERROR_DECRYPT_PERMISSION = 'For downloading encrypted scripts the decryption PEM file is required';
+const ERROR_DECRYPT_PERMISSION = "For downloading encrypted scripts the decryption PEM file is required";
 
 
 export class scriptT  {
@@ -68,7 +68,7 @@ export class scriptT  {
      * + local script contains // #crypt
      *
      * forceFalse:
-     * upload: local script unencrypted, server script unencrypted
+     * upload: local script not encrypted, server script not encrypted
      */
     encrypted?: string;
 
@@ -152,283 +152,211 @@ export class xmlExport {
 
 
 
-
 export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo: config.ConnectionInformation) => Promise<any[]>;
 
 
 /**
  * This function establishes a connection to the server, calls the given operation
- * and closes the connection.
- * The operations that can be called on server using this function are implemented
- * below.
+ * and closes the connection. All available operations are implemented below.
  *
  * @param loginData
  * @param param input parameter of the operation
- * @param serverOperation the operation to be called on server, should be one of the
- * functions that are implemented below
+ * @param serverOperation the operation to be called on server, see below
  */
-export async function serverSession(loginData: config.ConnectionInformation, param: any[], serverOperation: serverOperationT): Promise<any[]> {
-    return new Promise<any[]>((resolve, reject) => {
+export async function serverSession(loginData: config.ConnectionInformation, param: any[], serverOperation?: serverOperationT): Promise<any[]> {
+    return new Promise<any[]>(async (resolve, reject) => {
 
-        if(!loginData) {
-            return reject('login data missing');
-        }
+        // create connection
+        let sdsConnection = new sds.SDSConnection();
+        try {
+            await connectLogin(sdsConnection, loginData);
 
-        // save name in local variable, so the correct name is set in error message in on('close')
-        // loginData.server might change when on('close') is called after reject() in on('error')
-        const server = loginData.server;
-
-        // first try to get the login data
-        if (loginData.checkAnyLoginData()) {
-
-            let onConnect: boolean = false;
-
-            // create socket
-            let sdsSocket = connect(loginData.port, loginData.server);
-
-            // the callback functions for the socket are implemented below
-            // actual function (serverOperation) is executed in connect callback
-
-            // callback on connect
-            // function that is called on connect event
-            sdsSocket.on('connect', () => {
-                onConnect = true;
-
-                doLogin(loginData, sdsSocket).then((sdsConnection) => {
-
-                    // call serverOperation and then close the connection in any case
-                    serverOperation(sdsConnection, param, loginData).then((value) => {
-                        closeConnection(sdsConnection).then(() => {
-                            resolve(value);
-                        }).catch((reason) => {
-                            reject('close connection failed ' + reason);
-                        });
-                    }).catch((reason) => {
-                        closeConnection(sdsConnection).then(() => {
-                            // reject because serverOperation went wrong
-                            reject(reason);
-                        }).catch((reason2) => {
-                            // only show reason from catch-serverOperation!
-                            reject(reason);
-                        });
-                    });
-
-                }).catch((reason) => {
-                    reject(reason);
-                });
-            });
-
-
-            // callback on close
-            // function that is called on close event
-            sdsSocket.on('close', (hadError: boolean) => {
-                if (hadError) {
-                    // When an error occurred, the callbacks on('error') and on('close')
-                    // are called, but on('close') is called much later than on('error').
-                    //
-                    // TODO:
-                    // so would it be better to reject here and not in on('error')?
-                    // but we do not have the error information here...
-                    console.log(`SDS connection ${server} closed due to error`);
-                } else {
-                    //
-                }
-            });
-
-            // callback on error
-            // function that is called on error event
-            sdsSocket.on('error', (err: any) => {
-                console.log(`Error in SDS connection ${loginData.server}`);
-                // console.log(err);
-
-                // only reject here if on-connect couldn't start
-                if(onConnect) {
-                    // reject is executed in on('connect') callback
-                } else {
-                    // on('connect') is not executed, so we must reject here
-                    if (err.code === "ENOTFOUND") {
-                        reject(new Error(`Cannot connect to "${loginData.server}" - check server in ".vscode/launch.json"`));
-                    } else if (err.code === "EADDRNOTAVAIL") {
-                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check server and port in ".vscode/launch.json"`));
-                    } else if (err.code === "ECONNREFUSED") {
-                        reject(new Error(`Cannot connect to server: ${loginData.server} port: ${loginData.port} - check if server is running`));
-                    } else {
-                        reject(err);
-                    }
-                }
-            });
-
-        } else {
-            reject(`Login information missing`);
-        }
-    });
-}
-
-
-/**
- * Connect to server.
- * This function is called in function sdsSession before the operation is called.
- *
- * @param loginData
- * @param sdsSocket
- */
-async function doLogin(loginData: config.ConnectionInformation, sdsSocket: Socket): Promise<SDSConnection> {
-    return new Promise<SDSConnection>((resolve, reject) => {
-        let sdsConnection = new SDSConnection(sdsSocket);
-        sdsConnection.timeout = loginData.sdsTimeout? loginData.sdsTimeout: SDS_DEFAULT_TIMEOUT;
-
-        sdsConnection.connect('node-documents-scripting').then(() => {
-            let username = loginData.username;
-            let password: '' | Hash = loginData.password? loginData.password : '';
-            return sdsConnection.changeUser(username, password);
-
-        }).then(userId => {
-            loginData.userId = userId;
-            if (loginData.principal.length > 0) {
-                return sdsConnection.changePrincipal(loginData.principal);
-            } else {
-                return Promise.reject('Principal is missing');
+            // get/check version
+            const ret = await getDocumentsVersion(sdsConnection, []);
+            loginData.documentsVersion = ret[0];
+            if(!loginData.documentsVersion) {
+                // the application is JANUS based but not DOCUMENTS
+                return reject(`This command is only available on DOCUMENTS`);
+            } else if(Number(loginData.documentsVersion) < Number(VERSION_MIN)) {
+                return reject(`Current DOCUMENTS build no: ${loginData.documentsVersion} Required DOCUMENTS build no: ${VERSION_MIN}`);
             }
-        }).then(() => {
+
+            // set language
             if (loginData.language !== 0) {
-                return sdsConnection.setLanguage(loginData.language);
-            }
-        }).then(() => {
-            return sdsConnection.callClassOperation('PartnerNet.getVersionNo', []);
-
-        }).then((value) => {
-            let docVersion = value[0];
-            loginData.documentsVersion = docVersion;
-            if(!docVersion) {
-                reject(`This command is only available on DOCUMENTS`);
-            } else if(Number(VERSION_MIN) > Number(docVersion)) {
-                reject(`Current DOCUMENTS build no: ${docVersion} Required DOCUMENTS build no: ${VERSION_MIN}`);
-            } else {
-                resolve(sdsConnection);
+                await sdsConnection.PDMeta.setLanguage(loginData.language);
             }
 
-        }).catch((reason) => {
-            console.log("doLogin(): reject and close connection");
-            if (reason.message) {
-                reject(reason.message + ` - check ".vscode/launch.json"`);
-            } else {
-                reject(reason + ` - check ".vscode/launch.json"`);
+            // call function
+            let result: string[] = [];
+            if (serverOperation !== undefined) {
+                result = await serverOperation(sdsConnection, param, loginData);
             }
-            closeConnection(sdsConnection).catch((reason) => {
-                console.log(reason);
-            });
-        });
+            return resolve(result);
+        } catch (err) {
+            return reject(err);
+        } finally {
+            disconnect(sdsConnection);
+        }
     });
 }
 
+export async function connectLogin(sdsConnection: SDSConnection, conn: config.Connection, clientName = "node-documents-scripting"): Promise<void> {
+    return new Promise<void>(async (resolve, reject) => {
+        if (sdsConnection.isConnected) {
+            return resolve();
+        }
+        if (conn.password === undefined) {
+            return reject("Cannot login, password must be Hash or empty string");
+        }
 
-/**
- * Close the connection to the server.
- * This function is called in function sdsSession after the operation
- * has been called.
- *
- * @param sdsConnection
- */
-async function closeConnection(sdsConnection: SDSConnection): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        sdsConnection.disconnect().then(() => {
-            resolve();
-        }).catch((reason) => {
-            reject('closeConnection failed: ' + reason);
-        });
+        try {
+            // connect/login
+            sds.SDSConnection.TIMEOUT = conn.sdsTimeout ? conn.sdsTimeout : sds.SDSConnection.TIMEOUT;
+            await sdsConnection.connect(clientName, conn.server, conn.port);
+            await sdsConnection.PDClass.changeUser(conn.username, conn.password);
+            await sdsConnection.PDClass.changePrincipal(conn.principal);
+            return resolve();
+        } catch (err) {
+            return reject(err);
+        }
     });
 }
 
+export function disconnect(sdsConnection: SDSConnection) {
+    if (sdsConnection && sdsConnection._isConnected) {
+        sdsConnection.disconnect();
+    }
+}
 
-
-
-
-
-/**
- * Server Operations
- *
- *
- * The following functions are the operations that can be called
- * on server using the function sdsSession.
- */
+export async function callClassOperation(sdsConnection: SDSConnection, op: string, params: string[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        try {
+            const response = await sdsConnection.PDClass.callOperation(op, params) as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+            return resolve(value);
+        } catch (err) {
+            return reject(`${op} failed: ` + err);
+        }
+    });
+}
 
 
 export async function getSourceCodeForEditor(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        if (!checkVersion(connInfo, VERSION_SHOW_IMPORTS, "VERSION_SHOW_IMPORTS")) {
-            // warning message inside connInfo
-            return reject();
+    return new Promise<string[]>(async (resolve, reject) => {
+        const op = "PortalScript.getSourceCodeForEditor";
+        const requiredVersion = VERSION_SHOW_IMPORTS;
+        if(Number(connInfo.documentsVersion) < Number(requiredVersion)) {
+            return reject(`For operation ${op} at least DOCUMENTS ${requiredVersion} is required`);
         }
-        sdsConnection.callClassOperation('PortalScript.getSourceCodeForEditor', params).then((value) => {
-            const sourceCode = value[0];
-            resolve([sourceCode]);
-        }).catch((reason) => {
-            reject(reason);
-        });
+        try {
+            const value = await callClassOperation(sdsConnection, op, params);
+            return resolve(value);
+        } catch (err) {
+            return reject(err);
+        }
     });
 }
 
+export async function doMaintenance(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+    return await callClassOperation(sdsConnection, "Global.doMaintenance", params);
+}
 
-/**
- * Returns the current build version that is used with the given login data.
- * This function is called in sdsSession.
- *
- * @param sdsConnection Set by function sdsSession
- * @param params empty
- */
-export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
-    return new Promise<any[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PartnerNet.getVersionNo', []).then((value) => {
-            connInfo.documentsVersion = value[0];
-            console.log('getDocumentsVersion: ' + connInfo.documentsVersion);
-            resolve();
-        }).catch((reason) => {
-            reject('getDocumentsVersion failed: ' + reason);
-        });
-    });
+export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<string[]> {
+    return await callClassOperation(sdsConnection, "PartnerNet.getVersionNo", params);
 }
 
 /**
- * Check if user has the permission to decrypt scripts.
- *
- * @param sdsConnection
- * @param params
- * @param connInfo
+ * @param params e.g. ["allowDecryption"] shows if user has permission to decrypt scripts (returns ["1"] for true)
  */
-export async function checkDecryptionPermission(sdsConnection: SDSConnection, params: any[], connInfo: config.ConnectionInformation): Promise<any[]> {
-    return new Promise<any[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PartnerNet.getProperty', ['allowDecryption']).then((value) => {
-            let perm = false;
-            if('1' === value[1]) {
-                perm = true;
+export async function getProperty(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return await callClassOperation(sdsConnection, "PartnerNet.getProperty", params);
+}
+
+/**
+ * Generate xml for filetypes or portal scripts
+ * Some examples for params:
+ * ["DlcFileType", "Title='crmNote'"],
+ * ["PortalScript", "Name='myScript'"],
+ * ["DlcFileType", ""],
+ * ["PortalScript", ""]
+ * ["DlcFileType", "(Title='crmNote'||Title='crmCase')"]
+ *
+ * @param params string array with two entries, class name and filter. See examples in description.
+ * @return string array, first element is the xml as string, second to n-th value is the paths to the blobs
+ */
+export async function exportXML(sdsConnection: SDSConnection, params: xmlExport[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        try {
+            for (const current of params) {
+                const returnValue = await callClassOperation(sdsConnection, "Global.exportXML", [current.className, current.filter]);
+                current.content = returnValue[0];
+                current.files = returnValue.slice(1);
             }
-            connInfo.decryptionPermission = perm;
-            resolve();
-        }).catch((reason) => {
-            reject('checkDecryptionPermission failed: ' + reason);
-        });
+        } catch (reason) {
+            return reject(reason);
+        }
+        return resolve([]);
     });
 }
 
 /**
- * Get all scriptnames on server as scripts.
+ * 
+ * @param sdsConnection
+ * @param files string array containing file paths, like [source1, target1, source2, target2, ...]
+ */
+export async function receiveFiles(sdsConnection: SDSConnection, files: string[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        if ((files.length % 2) !== 0) {
+            return reject(`Unexpected length of file array ${files.length}`);
+        }
+        // tslint:disable-next-line: prefer-for-of
+        for (let i = 0; i < files.length - 1; i += 2) {
+            try {
+                fs.ensureDirSync(path.dirname(files[i]));
+                await sdsConnection.PDTools.receiveFile(files[i + 1], files[i]);
+            } catch (err) {
+                return reject(`Error in receiving file ${files[i + 1]}: ${err}`);
+            }
+        }
+        return resolve([]);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * Get all script names on server as scripts.
  *
  * @param sdsConnection
- * @param params category If set, scriptsnames from this category are returned.
- * @returns {scriptT[]} List of scripts created from all scriptnames in category or all scriptnames on server.
+ * @param params category If set, script names from this category are returned.
+ * @returns {scriptT[]} List of scripts created from all script names in category or all script names on server.
  */
 export async function getScriptsFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.getScriptNames', params).then((scriptNames) => {
-            let scripts: scriptT[] = [];
-            scriptNames.forEach(function(scriptname) {
-                let script: scriptT = new scriptT(scriptname, '');
-                scripts.push(script);
-            });
-            resolve(scripts);
-        }).catch((reason) => {
-            reject('getScriptsFromServer failed: ' + reason);
-        });
+    return new Promise<scriptT[]>(async (resolve, reject) => {
+        try {
+            const scriptNames = await getScriptNamesFromServer(sdsConnection, params, connInfo);
+            let scripts: scriptT[] = scriptNames.map(scriptName => new scriptT(scriptName, ""));
+            return resolve(scripts);
+        } catch (err) {
+            return reject(err);
+        }
     });
 }
 
@@ -437,77 +365,23 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
  * Get names of all scripts on server.
  *
  * @param sdsConnection
- * @param params category If set, scriptsnames from this category are returned.
- * @returns {string[]} List of all scriptnames in category or all scriptnames on server.
+ * @param params category If set, script names from this category are returned.
+ * @returns {string[]} List of all script names in category or all script names on server.
  */
 export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.getScriptNames', params).then((scriptNames) => {
-            let scripts: string[] = [];
-            scriptNames.forEach(function(scriptname) {
-                scripts.push(scriptname);
-            });
-            resolve(scripts);
+        sdsConnection.PDClass.callOperation('PortalScript.getScriptNames', params).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+            resolve(value);
         }).catch((reason) => {
             reject('getScriptNamesFromServer failed: ' + reason);
         });
-    });
-}
-
-
-
-/**
- * Generate xml for filetypes or portal scripts
- *
- * @param params Simply a string-array with two entries.
- * We could use xmlExport-type, but actually only a class-name and a filter is required.
- * Some examples:
- * ["DlcFileType", "Title='crmNote'"],
- * ["PortalScript", "Name='myScript'"],
- * ["DlcFileType", ""],
- * ["PortalScript", ""]
- * ["DlcFileType", "(Title='crmNote'||Title='crmCase')"]
- *
- * @return string array, first element is the xml as string
- */
-export async function exportXML(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('Global.exportXML', params).then((xml) => {
-            resolve(xml);
-        }).catch((reason) => {
-            reject('exportXML failed: ' + reason);
-        });
-    });
-}
-
-export async function doMaintenance(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('Global.doMaintenance', params).then((returnValue) => {
-            resolve(returnValue);
-        }).catch((reason) => {
-            reject('doMaintenance failed: ' + reason);
-        });
-    });
-}
-
-export async function exportXMLSeperateFiles(sdsConnection: SDSConnection, params: xmlExport[]): Promise<any[]> {
-    return new Promise<any[]>(async (resolve, reject) => {
-        try {
-            // don't use forEach here, because await won't
-            // work as required with forEach
-            for (const current of params) {
-                const returnValue = await exportXML(sdsConnection, [current.className, current.filter]);
-                // first value contains the xml
-                current.content = returnValue[0];
-                // paths to the blobs
-                current.files = returnValue.slice(1);
-            }
-        } catch (reason) {
-            return reject(reason);
-        }
-        // return empty array
-        // because serverOperationT requires an array return value
-        return resolve([]);
     });
 }
 
@@ -520,7 +394,14 @@ export async function exportXMLSeperateFiles(sdsConnection: SDSConnection, param
  */
 export async function getFileTypeNames(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
+        sdsConnection.PDClass.callOperation('IDlcFileType.getFileTypeNames', []).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const fileTypeNames = response.getParameter(ParameterNames.PARAMETER) as string[];
             // first entry contains the error message that is read in node-sds
             fileTypeNames.splice(0, 1);
             resolve(fileTypeNames);
@@ -565,7 +446,14 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
 
 
         // get the field names
-        sdsConnection.callClassOperation('IDlcFileType.' + operation, [fileTypeName]).then((fieldInfo) => {
+        sdsConnection.PDClass.callOperation('IDlcFileType.' + operation, [fileTypeName]).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const fieldInfo = response.getParameter(ParameterNames.PARAMETER) as string[];
             let fieldName = '';
             let fieldType = '';
             let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
@@ -612,7 +500,14 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
         let output = '';
         let fileTypeMappings = '';
         let fileTypesDisj = '';
-        sdsConnection.callClassOperation('IDlcFileType.getFileTypeNames', []).then((fileTypeNames) => {
+        sdsConnection.PDClass.callOperation('IDlcFileType.getFileTypeNames', []).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const fileTypeNames = response.getParameter(ParameterNames.PARAMETER) as string[];
 
             // some checks
             if (!fileTypeNames || fileTypeNames.length <= 0) {
@@ -680,7 +575,13 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
  */
 function setScriptInfoFromJSON(sdsConnection: SDSConnection, params: string[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-        sdsConnection.callClassOperation('PortalScript.setScriptInfoFromJSON', params).then(() => {
+        sdsConnection.PDClass.callOperation('PortalScript.setScriptInfoFromJSON', params).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
             resolve();
         }).catch((reason) => {
             reject('setScriptParameters failed: ' + reason);
@@ -693,7 +594,14 @@ function setScriptInfoFromJSON(sdsConnection: SDSConnection, params: string[]): 
 function getScriptInfoAsJSON(sdsConnection: SDSConnection, scripts: scriptT[]): Promise<string[]> {
     return new Promise<any[]>((resolve, reject) => {
         const script = scripts[0];
-        sdsConnection.callClassOperation('PortalScript.getScriptInfoAsJSON', [script.name]).then((param) => {
+        sdsConnection.PDClass.callOperation('PortalScript.getScriptInfoAsJSON', [script.name]).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const param = response.getParameter(ParameterNames.PARAMETER) as string[];
             const err = param[0];
             if(0 < err.length) {
                 reject(err);
@@ -735,7 +643,13 @@ export async function getScriptInfoAsJSONAll(sdsConnection: SDSConnection, param
 
 export async function getSystemUser(sdsConnection: SDSConnection, params: any[]): Promise<any[]> {
     return new Promise<any[]>((resolve, reject) => {
-        sdsConnection.callClassOperation('Systemuser.get', ['test']).then((param) => {
+        sdsConnection.PDClass.callOperation('Systemuser.get', ['test']).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
             resolve([]);
         }).catch((reason) => {
             reject('getSystemUser failed: ' + reason);
@@ -761,7 +675,15 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
         } else {
             let script: scriptT = params[0];
 
-            sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((retval) => {
+            sdsConnection.PDClass.callOperation('PortalScript.downloadScript', [script.name]).then((returnValue) => {
+                const response = returnValue as SDSResponse;
+                const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+                if (errCode < 0) {
+                    const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                    return reject(value[0]);
+                }
+                const retval = response.getParameter(ParameterNames.PARAMETER) as string[];
+
                 if(!retval[0] || typeof(retval[0]) !== 'string') {
                     return reject('could not find ' + script.name + ' on server');
                 }
@@ -773,7 +695,6 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                     let scriptPath;
 
                     // get category for category as folder
-                    // if (script.getCategories && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES"))
                     if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                         script.category = retval[2];
                     }
@@ -878,7 +799,15 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
         // script.encrypted === 'false' is default:
         // script must be encrypted, if it's encrypted on server or contains // #crypt
 
-        sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+        sdsConnection.PDClass.callOperation('PortalScript.downloadScript', [script.name]).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+
             if (!value || value.length === 0) {
                 // script not on server
                 return resolve();
@@ -932,7 +861,14 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
             return resolve([script]);
         }
 
-        sdsConnection.callClassOperation('PortalScript.downloadScript', [script.name]).then((value) => {
+        sdsConnection.PDClass.callOperation('PortalScript.downloadScript', [script.name]).then((returnValue) => {
+            const response = returnValue as SDSResponse;
+            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+            if (errCode < 0) {
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                return reject(value[0]);
+            }
+            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
 
             if(!value || value.length === 0) {
                 // script not on server
@@ -1028,7 +964,7 @@ export async function uploadScript(sdsConnection: SDSConnection, params: scriptT
             let params = [script.name, script.localCode, script.encrypted, paramCategory];
 
             // call uploadScript
-            return sdsConnection.callClassOperation("PortalScript.uploadScript", params).then((value) => {
+            return sdsConnection.PDClass.callOperation("PortalScript.uploadScript", params).then((value) => {
 
                 // set hash value
                 if(script.conflictMode && script.localCode) {
@@ -1121,7 +1057,18 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[],
         } else {
 
             let script: scriptT = params[0];
-            sdsConnection.callClassOperation('PortalScript.runScript', [script.name]).then((value) => {
+            sdsConnection.PDClass.callOperation('PortalScript.runScript', [script.name]).then((returnValue) => {
+                const response = returnValue as SDSResponse;
+                const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+                if (errCode < 0) {
+                    // no error!
+                    // bug in runScript and debugScript on Documents:
+                    // if the script returns a value, RETURN_VALUE is set to -1
+
+                    // const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                    // return reject(value[0]);
+                }
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
                 if(!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 } else {
@@ -1148,7 +1095,19 @@ export async function debugScript(sdsConnection: SDSConnection, params: scriptT[
         } else {
 
             let script: scriptT = params[0];
-            sdsConnection.callClassOperation('PortalScript.debugScript', [script.name]).then((value) => {
+            sdsConnection.PDClass.callOperation('PortalScript.debugScript', [script.name]).then((returnValue) => {
+                const response = returnValue as SDSResponse;
+                const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+                if (errCode < 0) {
+                    // no error!
+                    // bug in runScript and debugScript on Documents:
+                    // if the script returns a value, RETURN_VALUE is set to -1
+
+                    // const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+                    // return reject(value[0]);
+                }
+                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+
                 if(!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 } else {
@@ -1244,7 +1203,7 @@ export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
         return reduce(scripts, function(numscripts: number, script: scriptT) {
             // if script.path is not set, script will not be saved in writeFileEnsureDir(),
             // so the path member can be used to prevent single scripts of the scripts-array
-            // from beeing saved
+            // from being saved
             return writeFileEnsureDir(script.serverCode, script.path).then((saved) => {
                 script.localCode = script.serverCode;
                 if(script.conflictMode) {
@@ -1253,7 +1212,7 @@ export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
                 return numscripts + (saved? 1 : 0);
             });
         }, 0).then((numscripts: number) => {
-            // this section is exectuted once after all writeFileEnsureDir calls are finished
+            // this section is executed once after all writeFileEnsureDir calls are finished
             resolve(numscripts);
         }).catch((error: any) => {
             reject(error);
@@ -1359,8 +1318,6 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
             loginData.lastWarning = `For uploading parameter DOCUMENTS ${VERSION_PARAMS_SET} is required`;
         } else if("VERSION_PARAMS_GET" === warning) {
             loginData.lastWarning = `For downloading parameter DOCUMENTS ${VERSION_PARAMS_GET} is required`;
-        } else if("VERSION_SHOW_IMPORTS" === warning) {
-            loginData.lastWarning = `For showing imports DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`;
         }
 
         return false;
@@ -1368,17 +1325,6 @@ function checkVersion(loginData: config.ConnectionInformation, version: string, 
 }
 
 
-const NODEJS_UTF8_BOM = '\ufeff';
-// not used for now...
-// actually it's only required for DOCUMENTS 4 support,
-// in that case we shouldn't send UTF 8 without BOM
-function ensureBOM(sourceCode: string): string {
-    if(sourceCode.length >= 3 && sourceCode.startsWith(NODEJS_UTF8_BOM)) {
-        return sourceCode;
-    } else {
-        return NODEJS_UTF8_BOM + sourceCode;
-    }
-}
 function ensureNoBOM(sourceCode: string | undefined): string | undefined {
     if (!sourceCode) {
         return undefined;
