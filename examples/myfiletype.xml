@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- created at: 13.12.2019 18:37:10 -->
+<janus language="uk">
+<!-- Update xml for file types -->
+	<object class="DlcFile" label="79:532342" key="Title">
+		<attribute name="Title">myfiletype</attribute>
+	</object>
+	<object class="DlcFile" key="Title">
+		<attribute name="Title">myfiletype</attribute>
+		<attribute name="Released">false</attribute>
+		<attribute name="MultiLangLabel"/>
+		<attribute name="AutoTitle"/>
+		<attribute name="AutoOpenFirstDocument">false</attribute>
+		<attribute name="AutoVersioning">false</attribute>
+		<attribute name="Indexing">true</attribute>
+		<attribute name="FixRegisterAmount"/>
+		<attribute name="ShowTitle">true</attribute>
+		<attribute name="ShowCreationDataInFileView">true</attribute>
+		<attribute name="ShowModificationDataInFileView">true</attribute>
+		<attribute name="ShowFollowUpDateInFileView">true</attribute>
+		<attribute name="ShowFileTypeAsCoverLabel">false</attribute>
+		<attribute name="ShowStandardFieldsAtBottom">false</attribute>
+		<attribute name="SearchTitle">true</attribute>
+		<attribute name="ShowTitleInHitlist">true</attribute>
+		<attribute name="SearchCreationData">true</attribute>
+		<attribute name="ShowCreationData">true</attribute>
+		<attribute name="SearchModificationData">true</attribute>
+		<attribute name="ShowModificationData">true</attribute>
+		<attribute name="Icon">crmNote.gif</attribute>
+		<attribute name="Thumbnail">false</attribute>
+		<attribute name="ShowFileStatus">true</attribute>
+		<attribute name="StartWorkflowImmediately">false</attribute>
+		<attribute name="AdHocAllowAllWorkflows">true</attribute>
+		<attribute name="AdHocAllowAllDistributionLists">true</attribute>
+		<attribute name="LogBookFieldValues"/>
+		<attribute name="ShowMonitor">true</attribute>
+		<attribute name="ShowCompleteMonitor">false</attribute>
+		<attribute name="ShowMonitorInverse">false</attribute>
+		<attribute name="MonitorShortPreview">false</attribute>
+		<attribute name="ShowMonitorAsRegister">false</attribute>
+		<attribute name="ShowDecisions">true</attribute>
+		<attribute name="ShowSubWorkflows">false</attribute>
+		<attribute name="ArchiveStatus">false</attribute>
+		<attribute name="ArchiveMonitor">false</attribute>
+		<attribute name="ArchiveMetaData">false</attribute>
+		<attribute name="AllowArchiveFileCreation">true</attribute>
+		<attribute name="AllowArchiveFileQuickCreation">true</attribute>
+		<attribute name="AllowArchiveFileReactivation">false</attribute>
+		<attribute name="ArchiveServer"/>
+		<attribute name="LastWorkflow"/>
+		<attribute name="AllowStandardCreation">true</attribute>
+		<attribute name="RecordStandardCreation">true</attribute>
+		<attribute name="AllowArchiveDeleteFile">true</attribute>
+		<attribute name="RecordArchiveDeleteFile">true</attribute>
+		<attribute name="AllowQuickCreation">true</attribute>
+		<attribute name="RecordQuickCreation">true</attribute>
+		<attribute name="AllowDeleteFile">true</attribute>
+		<attribute name="RecordDeleteFile">true</attribute>
+		<attribute name="AllowCopyFile">true</attribute>
+		<attribute name="RecordCopyFile">true</attribute>
+		<attribute name="AllowWorkflow">true</attribute>
+		<attribute name="RecordWorkflow">true</attribute>
+		<attribute name="AllowFileToFollowUp">true</attribute>
+		<attribute name="RecordFileToFollowUp">true</attribute>
+		<attribute name="AllowChangeFiletype">true</attribute>
+		<attribute name="RecordChangeFiletype">true</attribute>
+		<attribute name="AllowPrintControlSheet">true</attribute>
+		<attribute name="RecordPrintControlSheet">true</attribute>
+		<attribute name="AllowCreatePdf">true</attribute>
+		<attribute name="RecordCreatePdf">true</attribute>
+		<attribute name="AllowSendAsMail">true</attribute>
+		<attribute name="RecordSendAsMail">true</attribute>
+		<attribute name="AllowArchiveFile">true</attribute>
+		<attribute name="RecordArchiveFile">true</attribute>
+		<attribute name="properties"/>
+		<attribute name="KeyType"/>
+		<attribute name="ViewUserId">0</attribute>
+		<attribute name="Type">File type</attribute>
+		<attribute name="TargetArchive">Main server</attribute>
+		<attribute name="isNewFile">false</attribute>
+		<attribute name="ProcessFile">false</attribute>
+		<relation role="to_DlcField">
+			<object class="DlcField" label="71:532338" key="Name" keyscope="role">
+				<attribute name="Name">field1</attribute>
+				<attribute name="FieldDataType">String</attribute>
+				<attribute name="Unit"/>
+				<attribute name="MaxSize"/>
+				<attribute name="MandatoryField">false</attribute>
+				<attribute name="EnumValues"/>
+				<attribute name="Sorted">false</attribute>
+				<attribute name="ReadOnly">false</attribute>
+				<attribute name="InFileview">true</attribute>
+				<attribute name="Value">node-documents-scripting</attribute>
+				<attribute name="InstanceNr">1</attribute>
+				<attribute name="ChangeTrackingFlags">0</attribute>
+				<attribute name="UseValue">false</attribute>
+				<relation role="to_DlcTemplateField" action="connectDeleteOther">
+					<object class="DlcTemplateField" label="130:532339">
+						<attribute name="Label"/>
+						<attribute name="WithoutLabel">false</attribute>
+						<attribute name="ControlWidth"/>
+						<attribute name="SameLine">false</attribute>
+						<attribute name="InHitlist">false</attribute>
+						<attribute name="InSearchMask">false</attribute>
+						<attribute name="NeedsModificationComment">false</attribute>
+						<attribute name="LogChanges">false</attribute>
+						<attribute name="FulltextIndex">false</attribute>
+						<attribute name="MinValue"/>
+						<attribute name="MaxValue"/>
+						<attribute name="UserexitTooltip"/>
+						<attribute name="UserexitType">No user-exit</attribute>
+						<attribute name="UserexitFieldReadonly">false</attribute>
+						<attribute name="UserexitRefresh">false</attribute>
+						<attribute name="EZFieldFlags"/>
+						<attribute name="EEXDataTypes"/>
+						<attribute name="EEXWorkDataType"/>
+						<attribute name="EEXMinCard">0</attribute>
+						<attribute name="EEXMaxCard">1</attribute>
+						<attribute name="EEXDefaultCard">1</attribute>
+						<attribute name="EEXMeanings"/>
+						<attribute name="properties"/>
+						<attribute name="ControlHeight"/>
+						<attribute name="Scope">Unrestricted</attribute>
+						<attribute name="EASYFieldID"/>
+					</object>
+				</relation>
+				<relation role="to_DlcFieldAccess">
+				</relation>
+			</object>
+		</relation>
+		<relation role="StandardWorkflow">
+		</relation>
+		<relation role="to_WFMWorkflow">
+		</relation>
+		<relation role="AdHocDistributionLists">
+		</relation>
+		<relation role="AdHocWorkflows">
+		</relation>
+		<relation role="AllowedWorkflows">
+		</relation>
+		<relation role="to_DlcRegister">
+		</relation>
+		<relation role="to_DlcAction">
+		</relation>
+		<relation role="to_DlcMailTemplate">
+		</relation>
+		<relation role="to_DlcDocumentTemplate">
+		</relation>
+		<relation role="to_DlcFileClassProtection">
+		</relation>
+		<relation role="protectedField">
+		</relation>
+		<relation role="to_DlcFileAccess">
+		</relation>
+		<relation role="to_DlcHitMask">
+		</relation>
+		<relation role="to_DlcSearchMask">
+		</relation>
+		<relation role="to_DlcFileTypeCategory">
+		</relation>
+	</object>
+</janus>

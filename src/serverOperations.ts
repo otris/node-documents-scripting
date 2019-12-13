@@ -277,6 +277,11 @@ export async function getProperty(sdsConnection: SDSConnection, params: string[]
     return await callClassOperation(sdsConnection, "PartnerNet.getProperty", params);
 }
 
+export async function importXML(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+    return await callClassOperation(sdsConnection, "Global.importXML2", params);
+}
+
+
 /**
  * Generate xml for filetypes or portal scripts
  * Some examples for params:
@@ -303,6 +308,7 @@ export async function exportXML(sdsConnection: SDSConnection, params: xmlExport[
         return resolve([]);
     });
 }
+
 
 /**
  * 
