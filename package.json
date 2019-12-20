@@ -1,6 +1,6 @@
 {
   "name": "node-documents-scripting",
-  "version": "7.0.4",
+  "version": "7.0.5",
   "description": "This node module provides support for creating and editing JavaScript files on a DOCUMENTS Server.",
   "repository": {
     "type": "git",
@@ -22,7 +22,7 @@
     "simpleTest": "node ./examples/simpleTest.js"
   },
   "dependencies": {
-    "@otris/node-sds": "^2.0.5",
+    "@otris/node-sds": "^2.0.6",
     "@types/node": "^7.0.4",
     "commander": "^2.9.0",
     "fs-extra": "^4.0.1",
