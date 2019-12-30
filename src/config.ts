@@ -22,12 +22,13 @@ export enum Language {
 }
 
 export class Connection {
-    public server: string = '';
+    public server: string = "";
     public port: number = 0;
-    public username: string = '';
-    public password: Hash | '' | undefined;
-    public principal: string = '';
+    public username: string = "";
+    public password: Hash | "" | undefined;
+    public principal: string = "";
     public sdsTimeout?: number;
+    public clientName?: string;
 }
 
 export class ConnectionInformation extends Connection {

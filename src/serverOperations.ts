@@ -2,14 +2,17 @@ import * as os from "os";
 import * as path from "path";
 import * as crypto from "crypto";
 import * as config from "./config";
+import * as sds from "@otris/node-sds";
+import { SDSConnection, SDSResponse, ParameterNames } from "@otris/node-sds";
+import { version } from "punycode";
 
 const reduce = require("reduce-for-promises");
 const fs = require("fs-extra");
 
-const sds = require("@otris/node-sds");
-const ParameterNames = sds.ParameterNames;
-export type SDSConnection = any;
-export type SDSResponse = any;
+// const sds = require("@otris/node-sds");
+// const ParameterNames = sds.ParameterNames;
+// export type SDSConnection = any;
+// export type SDSResponse = any;
 
 export const VERSION_MIN = "8034";
 export const VERSION_PARAMS_GET = "8036";
@@ -161,7 +164,7 @@ export type serverOperationT = (sdsConn: SDSConnection, param: any[], connInfo: 
  *
  * @param loginData
  * @param param input parameter of the operation
- * @param serverOperation the operation to be called on server, see below
+ * @param serverOperation the operation to be called on server
  */
 export async function serverSession(loginData: config.ConnectionInformation, param: any[], serverOperation?: serverOperationT): Promise<any[]> {
     return new Promise<any[]>(async (resolve, reject) => {
@@ -172,25 +175,21 @@ export async function serverSession(loginData: config.ConnectionInformation, par
             await connectLogin(sdsConnection, loginData);
 
             // get/check version
-            const ret = await getDocumentsVersion(sdsConnection, []);
-            loginData.documentsVersion = ret[0];
-            if(!loginData.documentsVersion) {
-                // the application is JANUS based but not DOCUMENTS
-                return reject(`This command is only available on DOCUMENTS`);
-            } else if(Number(loginData.documentsVersion) < Number(VERSION_MIN)) {
-                return reject(`Current DOCUMENTS build no: ${loginData.documentsVersion} Required DOCUMENTS build no: ${VERSION_MIN}`);
-            }
+            const value = await getDocumentsVersion(sdsConnection, [VERSION_MIN]);
+            loginData.documentsVersion = value[0];
 
             // set language
-            if (loginData.language !== 0) {
+            if (loginData.language > 0) {
                 await sdsConnection.PDMeta.setLanguage(loginData.language);
             }
 
-            // call function
-            let result: string[] = [];
-            if (serverOperation !== undefined) {
-                result = await serverOperation(sdsConnection, param, loginData);
+            if (serverOperation === undefined) {
+                return resolve([]);
             }
+
+            // call function
+            const result = await serverOperation(sdsConnection, param, loginData);
+
             return resolve(result);
         } catch (err) {
             return reject(err);
@@ -200,10 +199,14 @@ export async function serverSession(loginData: config.ConnectionInformation, par
     });
 }
 
-export async function connectLogin(sdsConnection: SDSConnection, conn: config.Connection, clientName = "node-documents-scripting"): Promise<void> {
-    return new Promise<void>(async (resolve, reject) => {
-        if (sdsConnection.isConnected) {
-            return resolve();
+export async function connectLogin(sdsConnection: SDSConnection | undefined, conn: config.Connection): Promise<SDSConnection> {
+    return new Promise<SDSConnection>(async (resolve, reject) => {
+        let connection = sdsConnection;
+        if (connection === undefined) {
+            connection = new sds.SDSConnection();
+        }
+        if (connection.isConnected) {
+            return resolve(connection);
         }
         if (conn.password === undefined) {
             return reject("Cannot login, password must be Hash or empty string");
@@ -212,10 +215,11 @@ export async function connectLogin(sdsConnection: SDSConnection, conn: config.Co
         try {
             // connect/login
             sds.SDSConnection.TIMEOUT = conn.sdsTimeout ? conn.sdsTimeout : sds.SDSConnection.TIMEOUT;
-            await sdsConnection.connect(clientName, conn.server, conn.port);
-            await sdsConnection.PDClass.changeUser(conn.username, conn.password);
-            await sdsConnection.PDClass.changePrincipal(conn.principal);
-            return resolve();
+            // sds.SDSConnection.STREAMING_TIMEOUT = 10000000;
+            await connection.connect(conn.clientName ? conn.clientName : "node-documents-scripting", conn.server, conn.port);
+            await connection.PDClass.changeUser(conn.username, conn.password);
+            await connection.PDClass.changePrincipal(conn.principal);
+            return resolve(connection);
         } catch (err) {
             return reject(err);
         }
@@ -223,9 +227,7 @@ export async function connectLogin(sdsConnection: SDSConnection, conn: config.Co
 }
 
 export function disconnect(sdsConnection: SDSConnection) {
-    if (sdsConnection && sdsConnection._isConnected) {
-        sdsConnection.disconnect();
-    }
+    sdsConnection.disconnect();
 }
 
 export async function callClassOperation(sdsConnection: SDSConnection, op: string, params: string[]): Promise<string[]> {
@@ -248,13 +250,11 @@ export async function callClassOperation(sdsConnection: SDSConnection, op: strin
 
 export async function getSourceCodeForEditor(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>(async (resolve, reject) => {
-        const op = "PortalScript.getSourceCodeForEditor";
-        const requiredVersion = VERSION_SHOW_IMPORTS;
-        if(Number(connInfo.documentsVersion) < Number(requiredVersion)) {
-            return reject(`For operation ${op} at least DOCUMENTS ${requiredVersion} is required`);
+        if(Number(connInfo.documentsVersion) < Number(VERSION_SHOW_IMPORTS)) {
+            return reject(`For operation PortalScript.getSourceCodeForEditor at least DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`);
         }
         try {
-            const value = await callClassOperation(sdsConnection, op, params);
+            const value = await callClassOperation(sdsConnection, "PortalScript.getSourceCodeForEditor", params);
             return resolve(value);
         } catch (err) {
             return reject(err);
@@ -266,8 +266,24 @@ export async function doMaintenance(sdsConnection: SDSConnection, params: string
     return await callClassOperation(sdsConnection, "Global.doMaintenance", params);
 }
 
-export async function getDocumentsVersion(sdsConnection: SDSConnection, params: any[]): Promise<string[]> {
-    return await callClassOperation(sdsConnection, "PartnerNet.getVersionNo", params);
+/**
+ * @param params if params[0] contains a number (e.g. "8034"), the version is checked against this number
+ */
+export async function getDocumentsVersion(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        const value = await callClassOperation(sdsConnection, "PartnerNet.getVersionNo", []);
+        if (params.length > 0) {
+            const version = value[0];
+            if(!version) {
+                // "PartnerNet.getVersionNo" is available on DOCUMENTS but most likely
+                // not on other JANUS based applications
+                return reject(`This command is only available on DOCUMENTS`);
+            } else if(Number(version) < Number(params[0])) {
+                return reject(`Current DOCUMENTS build no: ${version} Required DOCUMENTS build no: ${params[0]}`);
+            }
+        }
+        return resolve(value);
+    });
 }
 
 /**
@@ -277,6 +293,9 @@ export async function getProperty(sdsConnection: SDSConnection, params: string[]
     return await callClassOperation(sdsConnection, "PartnerNet.getProperty", params);
 }
 
+/**
+ * @returns string[]: [json, msg, oid1, attr1, local1 (rel), oid2, ...]
+ */
 export async function importXML(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
     return await callClassOperation(sdsConnection, "Global.importXML2", params);
 }
@@ -311,9 +330,7 @@ export async function exportXML(sdsConnection: SDSConnection, params: xmlExport[
 
 
 /**
- * 
- * @param sdsConnection
- * @param files string array containing file paths, like [source1, target1, source2, target2, ...]
+ * @param files string array containing file paths, like [local1, remote1, ...]
  */
 export async function receiveFiles(sdsConnection: SDSConnection, files: string[]): Promise<string[]> {
     return new Promise<string[]>(async (resolve, reject) => {
@@ -324,6 +341,7 @@ export async function receiveFiles(sdsConnection: SDSConnection, files: string[]
         for (let i = 0; i < files.length - 1; i += 2) {
             try {
                 fs.ensureDirSync(path.dirname(files[i]));
+                // receiveFile(remote, local)
                 await sdsConnection.PDTools.receiveFile(files[i + 1], files[i]);
             } catch (err) {
                 return reject(`Error in receiving file ${files[i + 1]}: ${err}`);
@@ -333,18 +351,32 @@ export async function receiveFiles(sdsConnection: SDSConnection, files: string[]
     });
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * @param param [oid1, attr1, local1 (abs), oid2, ...]
+ */
+export async function updateDocuments(sdsConnection: SDSConnection, param: string[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        if ((param.length % 3) !== 0) {
+            return reject(`Unexpected length of parameter array ${param.length}`);
+        }
+        try {
+            for (let i = 0; (i + 2) < param.length; i = i + 3) {
+                const pdo = await sdsConnection.PDClass.ptr(param[i + 0]);
+                const remoteDir = await pdo.getAttribute(param[i + 1] + ".BaseDirOnServer");
+                const remote = path.join(remoteDir, path.basename(param[i + 2]));
+                const remoteNew = await sdsConnection.PDTools.sendFile(remote, param[i + 2], false);
+                if (remoteNew !== remote) {
+                    throw new Error(`server created new name in sendFile ${remoteNew}`);
+                }
+                await pdo.setAttribute(param[i + 1], path.basename(remoteNew));
+                await pdo.sync();
+            }
+        } catch (err) {
+            return reject(`Error in updateDocument: ${err}`);
+        }
+        return resolve([]);
+    });
+}
 
 
 /**
@@ -396,7 +428,7 @@ export async function getScriptNamesFromServer(sdsConnection: SDSConnection, par
 
 /**
  * @param params empty for now, later: the categories
- * @return string array containing all filetypenames
+ * @return string array containing all filetype names
  */
 export async function getFileTypeNames(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
@@ -420,7 +452,7 @@ export async function getFileTypeNames(sdsConnection: SDSConnection, params: str
 
 
 /**
- * Get fieldnames of a filetype and create interface declaration for TypeScript
+ * Get field names of a filetype and create interface declaration for TypeScript
  * definition file.
  *
  * @param sdsConnection
@@ -436,16 +468,12 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             return reject('wrong parameter in getFileTypeInterface');
         }
 
-        // name of file type
         const fileTypeName = params[0];
-
-        // operation
         let operation = 'getFieldNames';
 
-        // check version, later documents versions include a
+        // older documents versions include a
         // function that also returns the types
         const fieldTypesVersion = checkVersion(connInfo, VERSION_FIELD_TYPES, "VERSION_FIELD_TYPES");
-
         if (fieldTypesVersion) {
             operation = 'getFieldNamesAndTypes';
         }
@@ -495,7 +523,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
 }
 
 /**
- * Get fieldnames of all file types and create a string that contains the
+ * Get field names of all file types and create a string that contains the
  * TypeScript definition file content for all file types
  *
  * @param sdsConnection
@@ -819,7 +847,7 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
                 return resolve();
             }
             if (value.length < 2) {
-                return reject(`Unexptected return value length (${value.length}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
+                return reject(`Unexpected return value length (${value.length}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
             }
             if (value[1] === 'true' || value[1] === 'decrypted') {
                 script.encrypted = 'decrypted';
@@ -833,7 +861,7 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
                 }
                 return resolve();
             }
-            return reject(`Unexptected return value (${value}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
+            return reject(`Unexpected return value (${value}) in checkVersionEncryption on DOCUMENTS #${connInfo.documentsVersion}`);
 
         }).catch((reason) => {
             reject(reason);
@@ -1039,7 +1067,7 @@ export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[],
                     return numscripts + 1;
                 });
             }, 0).then((numscripts: number) => {
-                // this section is exectuted once after all _uploadScript calls are finished
+                // this section is executed once after all _uploadScript calls are finished
                 resolve(scripts);
             }).catch((error: any) => {
                 reject(error);
