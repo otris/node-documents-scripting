@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- created at: 13.12.2019 18:37:10 -->
+<!-- created at: 30.12.2019 14:55:09 -->
 <janus language="uk">
 <!-- Update xml for file types -->
 	<object class="DlcFile" label="79:532342" key="Title">
@@ -95,7 +95,7 @@
 				<attribute name="ChangeTrackingFlags">0</attribute>
 				<attribute name="UseValue">false</attribute>
 				<relation role="to_DlcTemplateField" action="connectDeleteOther">
-					<object class="DlcTemplateField" label="130:532339">
+					<object class="DlcTemplateField" label="130:532737">
 						<attribute name="Label"/>
 						<attribute name="WithoutLabel">false</attribute>
 						<attribute name="ControlWidth"/>
@@ -145,6 +145,22 @@
 		<relation role="to_DlcMailTemplate">
 		</relation>
 		<relation role="to_DlcDocumentTemplate">
+			<object class="DlcDocumentTemplate" label="63:532605" key="Name" keyscope="role">
+				<attribute name="TemplateType">Document template</attribute>
+				<attribute name="Scope">Unrestricted</attribute>
+				<attribute name="Name">myLetter</attribute>
+				<attribute name="Active">true</attribute>
+				<attribute name="Label"/>
+				<docattribute name="Document" doc="63_532605\my_letter.rtf" />
+				<attribute name="DefaultDocumentName"/>
+				<attribute name="DefaultDocumentExtension"/>
+				<attribute name="AddOnFileCreation">false</attribute>
+				<attribute name="ParseTemplate">false</attribute>
+				<attribute name="ChangeNameAfterCreation">false</attribute>
+				<attribute name="AutoOpen">false</attribute>
+				<relation role="to_DlcRegister">
+				</relation>
+			</object>
 		</relation>
 		<relation role="to_DlcFileClassProtection">
 		</relation>
