@@ -43,7 +43,7 @@ async function importXML(paramLogin, paramXml){
         const files = makeAbsolutePaths(output.slice(2), path.dirname(paramXml));
         await serverOperations.updateDocuments(sdsConnection, files);
 
-        sdsConnection.disconnect();
+        serverOperations.disconnect(sdsConnection);
     } catch(err) {
         console.log(err);
     }
