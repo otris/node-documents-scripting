@@ -294,6 +294,13 @@ export async function getProperty(sdsConnection: SDSConnection, params: string[]
 }
 
 /**
+ * Update scriptlibs
+ */
+export async function clearPortalScriptCache(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return await callClassOperation(sdsConnection, "PartnerNet.*clearPortalScriptCache", []);
+}
+
+/**
  * @returns string[]: [json, msg, oid1, attr1, local1 (rel), oid2, ...]
  */
 export async function importXML(sdsConnection: SDSConnection, params: string[]): Promise<string[]> {
