@@ -4,7 +4,6 @@ import * as crypto from "crypto";
 import * as config from "./config";
 import * as sds from "@otris/node-sds";
 import { SDSConnection, SDSResponse, ParameterNames } from "@otris/node-sds";
-import { version } from "punycode";
 
 const reduce = require("reduce-for-promises");
 const fs = require("fs-extra");
@@ -663,7 +662,6 @@ export async function getScriptInfoAsJSONAll(sdsConnection: SDSConnection, param
     return new Promise<string[]>((resolve, reject) => {
         let jsonOut: string[] = [];
 
-        // see description of reduce in uploadAll
         return reduce(params, function(numScripts: number, _script: scriptT) {
             return getScriptInfoAsJSON(sdsConnection, [_script]).then((value) => {
                 const jsonScript: string = value[0];
@@ -788,7 +786,6 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
             resolve(returnScripts);
 
         } else {
-            // see description of reduce in uploadAll
             return reduce(scripts, function(numScripts: number, script: scriptT) {
                 return downloadScript(sdsConnection, [script], connInfo).then((retval) => {
                     const currentScript: scriptT = retval[0];
@@ -890,196 +887,157 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
  * @param params
  */
 function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-
+    return new Promise<scriptT[]>(async (resolve, reject) => {
         if(0 === params.length) {
             return resolve([]);
         }
-
         let script: scriptT = params[0];
 
         if(!script.conflictMode || script.forceUpload) {
             return resolve([script]);
         }
 
-        sdsConnection.PDClass.callOperation('PortalScript.downloadScript', [script.name]).then((returnValue) => {
-            const response = returnValue as SDSResponse;
+        const response = await sdsConnection.PDClass.callOperation('PortalScript.downloadScript', [script.name]) as SDSResponse;
+        const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+        if (errCode < 0) {
+            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+            return reject(value[0]);
+        }
+        const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+        if(!value || value.length === 0) {
+            // script not on server
+            script.conflict |= CONFLICT_SOURCE_CODE;
+            return resolve([script]);
+        }
+
+        if(value.length < 2) {
+            return reject('Unexpected error in checkForConflict');
+        }
+
+        if(value && 'true' === value[1]) {
+            // script encrypted on server and no decryption pem available
+            script.conflict |= CONFLICT_SOURCE_CODE;
+            script.encrypted = value[1];
+        } else {
+            // get hash value from server script code
+            const serverCode = ensureNoBOM(value[0]);
+            let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
+
+            // compare hash value
+            if(script.lastSyncHash !== serverHash) {
+                // server code has been changed
+                script.conflict |= CONFLICT_SOURCE_CODE;
+                script.serverCode = serverCode;
+            }
+        }
+
+        // compare category
+        if(value[2] && value[2] !== script.category) {
+            script.conflict |= CONFLICT_CATEGORY;
+        }
+
+        return resolve([script]);
+    });
+}
+
+
+/**
+ * Uploads a script
+ * @param sdsConnection
+ * @param inputScript Script to be uploaded, in an array (todo)
+ * @param connInfo
+ * @returns inputScript if it was either uploaded or had a conflict
+ */
+export async function uploadScript(sdsConnection: SDSConnection, inputScript: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
+    return new Promise<scriptT[]>(async (resolve, reject) => {
+        try {
+            if(inputScript.length !== 1) {
+                return resolve([]);
+            }
+            const script: scriptT = inputScript[0];
+
+            // versions < 8040: problems with encryption!
+            await encryptionWorkaround(sdsConnection, [script], connInfo);
+
+            script.localCode = ensureNoBOM(script.localCode);
+            if(!script.localCode) {
+                return reject('Source code missing in parameter in uploadScript()');
+            }
+
+            // conflict?
+            const conflictValue = await checkForConflict(sdsConnection, [script]);
+            const conflictScript: scriptT = conflictValue[0];
+            if (conflictScript && conflictScript.conflict) {
+                return resolve([conflictScript]);
+            }
+
+            // create parameters and upload script
+            if(!script.encrypted) {
+                script.encrypted = 'false';
+            }
+            let paramCategory = '';
+            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
+                paramCategory = script.category;
+            }
+            const uploadParams = [script.name, script.localCode, script.encrypted, paramCategory];
+            const response = await sdsConnection.PDClass.callOperation("PortalScript.uploadScript", uploadParams) as SDSResponse;
             const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
             if (errCode < 0) {
                 const value = response.getParameter(ParameterNames.PARAMETER) as string[];
                 return reject(value[0]);
             }
-            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+            // old versions do not return a value
+            // const value = response.getParameter(ParameterNames.PARAMETER) as string[];
 
-            if(!value || value.length === 0) {
-                // script not on server
-                script.conflict |= CONFLICT_SOURCE_CODE;
+            // set hash value
+            if(script.conflictMode) {
+                script.lastSyncHash = crypto.createHash('md5').update(script.localCode).digest("hex");
+            }
+
+            // script parameters
+            if (!script.parameters || script.parameters.length === 0) {
                 return resolve([script]);
             }
-
-            if(value.length < 2) {
-                return reject('Unexpected error in checkForConflict');
+            if (!checkVersion(connInfo, VERSION_PARAMS_SET, "VERSION_PARAMS_UP")) {
+                return resolve([script]);
             }
-
-            if(value && 'true' === value[1]) {
-                // script encrypted on server and no decryption pem available
-                script.conflict |= CONFLICT_SOURCE_CODE;
-                script.encrypted = value[1];
-            } else {
-                // get hash value from server script code
-                const serverCode = ensureNoBOM(value[0]);
-                let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
-
-                // compare hash value
-                if(script.lastSyncHash !== serverHash) {
-                    // server code has been changed
-                    script.conflict |= CONFLICT_SOURCE_CODE;
-                    script.serverCode = serverCode;
-                }
-            }
-
-            // compare category
-            if(value[2] && value[2] !== script.category) {
-                script.conflict |= CONFLICT_CATEGORY;
-            }
-
+            let scriptParameters: string[] = [script.name, script.parameters];
+            await setScriptInfoFromJSON(sdsConnection, scriptParameters);
             return resolve([script]);
 
-        }).catch((reason) => {
-            reject(reason);
-        });
-    });
-}
-
-
-
-
-/**
- * Upload Script.
- *
- * @param sdsConnection
- * @param params
- */
-export async function uploadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>(async (resolve, reject) => {
-
-        // check parameters
-        if(0 === params.length) {
-            return resolve([]);
-        }
-        let script: scriptT = params[0];
-
-
-        // there are problems with encryption on versions lower than 8040
-        try {
-            await encryptionWorkaround(sdsConnection, [script], connInfo);
         } catch (reason) {
             return reject(reason);
         }
-
-        script.localCode = ensureNoBOM(script.localCode);
-
-        checkForConflict(sdsConnection, [script]).then((value) => {
-
-            // return if conflict
-            const retscript: scriptT = value[0];
-            if (retscript.conflict) {
-                return resolve([retscript]);
-            }
-
-            // do some checks
-            if(!script.localCode) {
-                return reject('Source code missing in parameter in uploadScript()');
-            }
-            if(!script.encrypted) {
-                script.encrypted = 'false';
-            }
-
-            // check version for category
-            let paramCategory = '';
-            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
-                paramCategory = script.category;
-            }
-
-            // create parameters for uploadScript call
-            let params = [script.name, script.localCode, script.encrypted, paramCategory];
-
-            // call uploadScript
-            return sdsConnection.PDClass.callOperation("PortalScript.uploadScript", params).then((value) => {
-
-                // set hash value
-                if(script.conflictMode && script.localCode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(script.localCode).digest("hex");
-                }
-
-                // check for parameters
-                if (!script.parameters || script.parameters.length <= 0) {
-                    return resolve([script]);
-                }
-                if (!checkVersion(connInfo, VERSION_PARAMS_SET, "VERSION_PARAMS_UP")) {
-                    return resolve([script]);
-                }
-
-                // set parameters
-
-                let scriptParameters: string[] = [script.name, script.parameters];
-
-                // call setScriptParameters
-                setScriptInfoFromJSON(sdsConnection, scriptParameters).then(() => {
-                    console.log(`${script.name} uploaded and parameters set`);
-                    resolve([script]);
-                }).catch((reason) => {
-                    console.log(`${script.name} uploaded but parameters not set`);
-                    // todo warning
-                    resolve([script]);
-                });
-            });
-
-        }).catch((reason) => {
-            reject(reason);
-        });
     });
 }
 
 
 
 /**
- * Upload all scripts from given list.
- *
- * @return Array containing all uploaded scripts, should be equal to params.
+ * Uploads scripts from given list.
  * @param sdsConnection
- * @param params Array containing all scripts to upload.
+ * @param inputScripts List of scripts to be uploaded
+ * @param connInfo
+ * @returns List of scripts, containing scripts from inputScripts that were either uploaded or had a conflict
  */
-export async function uploadAll(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
-    return new Promise<scriptT[]>((resolve, reject) => {
-        let scripts: scriptT[] = [];
-
+export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
+    return new Promise<scriptT[]>(async (resolve, reject) => {
         if(!connInfo) {
             return reject('login information missing');
         }
-
-        if(0 === params.length) {
-            resolve(scripts);
-        } else {
-            // reduce calls _uploadScript for every name in scriptNames,
-            // in doing so every call of _uploadScript is started after
-            // the previous call is finished
-            return reduce(params, function(numscripts: number, _script: scriptT) {
-                return uploadScript(sdsConnection, [_script], connInfo).then((value) => {
-                    // this section is executed after every single _uploadScript call
-                    if(0 <= value.length) {
-                        let uscript = value[0];
-                        scripts.push(uscript);
-                    }
-                    return numscripts + 1;
-                });
-            }, 0).then((numscripts: number) => {
-                // this section is executed once after all _uploadScript calls are finished
-                resolve(scripts);
-            }).catch((error: any) => {
-                reject(error);
-            });
+        if(0 === inputScripts.length) {
+            return resolve([]);
         }
+
+        let returnScripts: scriptT[] = [];
+        for (const inputScript of inputScripts) {
+            const value = await uploadScript(sdsConnection, [inputScript], connInfo);
+            if (value && value.length === 1) {
+                // script uploaded, or conflict flag set
+                returnScripts.push(inputScript);
+            }
+        }
+        return resolve(returnScripts);
     });
 }
 
@@ -1173,7 +1131,6 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
-        // see description of reduce in uploadAll
         return reduce(params, function(numScripts: number, _script: scriptT) {
             return runScript(sdsConnection, [_script], connInfo).then((value) => {
                 let script: scriptT = value[0];
