@@ -292,9 +292,6 @@ export async function getProperty(sdsConnection: SDSConnection, params: string[]
     return await callClassOperation(sdsConnection, "PartnerNet.getProperty", params);
 }
 
-/**
- * Update scriptlibs
- */
 export async function clearPortalScriptCache(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return await callClassOperation(sdsConnection, "PartnerNet.*clearPortalScriptCache", []);
 }
@@ -377,6 +374,34 @@ export async function updateDocuments(sdsConnection: SDSConnection, param: strin
                 await pdo.setAttribute(param[i + 1], path.basename(remoteNew));
                 await pdo.sync();
             }
+        } catch (err) {
+            return reject(`Error in updateDocument: ${err}`);
+        }
+        return resolve([]);
+    });
+}
+
+/**
+ * Load scripts to scriptlibs folder and make server using them by clearing cache
+ */
+export async function updateScriptLibs(sdsConnection: SDSConnection, param: string[]): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        if ((param.length % 2) !== 0) {
+            return reject(`Unexpected length of parameter array ${param.length}`);
+        }
+        try {
+            for (let i = 0; (i + 1) < param.length; i = i + 2) {
+                const remote = param[i + 0];
+                const local = param[i + 1];
+                if (remote.indexOf("scriptlibs") < 0) {
+                    throw new Error(`remote path must contain scriptlibs folder: ${remote}`);
+                }
+                const remoteNew = await sdsConnection.PDTools.sendFile(remote, local, false);
+                if (remoteNew !== remote) {
+                    throw new Error(`server created new name in sendFile ${remoteNew}`);
+                }
+            }
+            await callClassOperation(sdsConnection, "PartnerNet.*clearPortalScriptCache", []);
         } catch (err) {
             return reject(`Error in updateDocument: ${err}`);
         }
@@ -946,12 +971,12 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
  * @param sdsConnection
  * @param inputScript Script to be uploaded, in an array (todo)
  * @param connInfo
- * @returns inputScript if it was either uploaded or had a conflict
+ * @returns inputScript in an array (todo) if it was either uploaded or had a conflict, empty array if input was empty
  */
 export async function uploadScript(sdsConnection: SDSConnection, inputScript: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
         try {
-            if(inputScript.length !== 1) {
+            if(inputScript.length === 0) {
                 return resolve([]);
             }
             const script: scriptT = inputScript[0];
@@ -1018,7 +1043,7 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
  * @param sdsConnection
  * @param inputScripts List of scripts to be uploaded
  * @param connInfo
- * @returns List of scripts, containing scripts from inputScripts that were either uploaded or had a conflict
+ * @returns List of scripts, containing scripts from inputScripts that were either uploaded or had a conflict, empty array if input was empty
  */
 export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
