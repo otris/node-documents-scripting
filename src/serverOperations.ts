@@ -27,7 +27,7 @@ export const CONFLICT_CATEGORY = 0x2;
 const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 
 const ERROR_DECRYPT_PERMISSION = "For downloading encrypted scripts the decryption PEM file is required";
-
+const ERROR_SOURCE_MISSING = "Source code missing in script";
 
 export class scriptT  {
     /**
@@ -986,7 +986,7 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
 
             script.localCode = ensureNoBOM(script.localCode);
             if(!script.localCode) {
-                return reject('Source code missing in parameter in uploadScript()');
+                return reject(ERROR_SOURCE_MISSING);
             }
 
             // conflict?
@@ -1056,8 +1056,17 @@ export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: 
 
         let returnScripts: scriptT[] = [];
         for (const inputScript of inputScripts) {
-            const value = await uploadScript(sdsConnection, [inputScript], connInfo);
-            if (value && value.length === 1) {
+            let retVal: scriptT[] = [];
+            try {
+                retVal = await uploadScript(sdsConnection, [inputScript], connInfo);
+            } catch (err) {
+                if (err.message === ERROR_SOURCE_MISSING) {
+                    // script could not be uploaded, try to upload the others
+                } else {
+                    return reject(err);
+                }
+            }
+            if (retVal && retVal.length === 1) {
                 // script uploaded, or conflict flag set
                 returnScripts.push(inputScript);
             }
