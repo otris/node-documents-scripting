@@ -1060,7 +1060,7 @@ export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: 
             try {
                 retVal = await uploadScript(sdsConnection, [inputScript], connInfo);
             } catch (err) {
-                if (err === ERROR_SOURCE_MISSING) {
+                if (err === ERROR_SOURCE_MISSING && inputScripts.length > 1) {
                     // script could not be uploaded, try to upload the others
                 } else {
                     return reject(err);
