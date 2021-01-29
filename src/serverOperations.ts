@@ -29,7 +29,7 @@ const SDS_DEFAULT_TIMEOUT: number = 60 * 1000;
 const ERROR_DECRYPT_PERMISSION = "For downloading encrypted scripts the decryption PEM file is required";
 const ERROR_SOURCE_MISSING = "Source code missing in script";
 
-export class scriptT  {
+export class scriptT {
     /**
      * Name of the script without extension.
      * A script is always a javascript file.
@@ -149,7 +149,7 @@ export class scriptT  {
 
 
 export class xmlExport {
-    constructor(public className: string, public filter: string, public fileName: string, public content?: string, public files?: string[]) {}
+    constructor(public className: string, public filter: string, public fileName: string, public content?: string, public files?: string[]) { }
 }
 
 
@@ -249,7 +249,7 @@ export async function callClassOperation(sdsConnection: SDSConnection, op: strin
 
 export async function getSourceCodeForEditor(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     return new Promise<string[]>(async (resolve, reject) => {
-        if(Number(connInfo.documentsVersion) < Number(VERSION_SHOW_IMPORTS)) {
+        if (Number(connInfo.documentsVersion) < Number(VERSION_SHOW_IMPORTS)) {
             return reject(`For operation PortalScript.getSourceCodeForEditor at least DOCUMENTS ${VERSION_SHOW_IMPORTS} is required`);
         }
         try {
@@ -273,11 +273,11 @@ export async function getDocumentsVersion(sdsConnection: SDSConnection, params: 
         const value = await callClassOperation(sdsConnection, "PartnerNet.getVersionNo", []);
         if (params.length > 0) {
             const version = value[0];
-            if(!version) {
+            if (!version) {
                 // "PartnerNet.getVersionNo" is available on DOCUMENTS but most likely
                 // not on other JANUS based applications
                 return reject(`This command is only available on DOCUMENTS`);
-            } else if(Number(version) < Number(params[0])) {
+            } else if (Number(version) < Number(params[0])) {
                 return reject(`Current DOCUMENTS build no: ${version} Required DOCUMENTS build no: ${params[0]}`);
             }
         }
@@ -511,7 +511,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
 
 
         // get the field names
-        sdsConnection.PDClass.callOperation('IDlcFileType.' + operation, [fileTypeName]).then((returnValue) => {
+        sdsConnection.PDClass.callOperation('IDlcFileType.' + operation, [fileTypeName]).then(async (returnValue) => {
             const response = returnValue as SDSResponse;
             const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
             if (errCode < 0) {
@@ -521,30 +521,66 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             const fieldInfo = response.getParameter(ParameterNames.PARAMETER) as string[];
             let fieldName = '';
             let fieldType = '';
-            let output = `declare interface ${fileTypeName} extends DocFile {` + os.EOL;
+            let output = `declare interface ${fileTypeName}Fields {` + os.EOL;
             let fieldParams = '';
-            const steps = fieldTypesVersion? 2 : 1;
-            const length = fieldTypesVersion? fieldInfo.length-1 : fieldInfo.length;
+            const steps = fieldTypesVersion ? 2 : 1;
+            const length = fieldTypesVersion ? fieldInfo.length - 1 : fieldInfo.length;
 
             // fieldNames[0] contains error message, that is read in node-sds
+            const referenceFileFieldNames: Map<string, string> = new Map();
             for (let i = 1; i < length; i += steps) {
                 fieldName = fieldInfo[i];
-                fieldType = fieldTypesVersion ? convertDocumentsFieldType(fieldInfo[i+1]) : 'any';
-                output += `\t${fieldName}?: ${fieldType};` + os.EOL;
+                fieldType = fieldTypesVersion ? convertDocumentsFieldType(fieldInfo[i + 1]) : 'any';
+                output += `\t${fieldName}: ${fieldType};` + os.EOL;
                 fieldParams += `'${fieldName}' | `;
+
+                if (fieldInfo[i + 1] === "Reference") {
+                    // try to get the referenced file type of the reference fields
+                    // the enum value of a reference field always starts with `<fileTypeName>.<identifier>`.
+                    // we can extract the file type name by parsing the enum value
+                    const enumValues = await sdsConnection.CustomOperations.runScriptOnServer(
+                        `context.changeScriptUser(DlcGlobalOptions.getAttribute("StandardUser"));return context.getEnumValues("${fileTypeName}", "${fieldName}")`
+                    );
+
+                    let referenceFileType = "DocFile"; // in case if the enum value cannot be parsed
+                    if (!enumValues.match(/error/i)) {
+                        // enumValues === <fileTypeName.identifier> , %autotext%
+                        referenceFileType = enumValues.split(/\r?\n|,\s?/)[0].match(/([^.]+)/)[0];
+                    }
+
+                    referenceFileFieldNames.set(fieldName, referenceFileType);
+                }
             }
 
             if (fieldParams.length > 0) {
                 // remove last ' |' in parameters for get/setFieldValues
                 fieldParams = fieldParams.substr(0, fieldParams.length - 3);
-
-                // add functions getFieldValue and setFieldValue
-                output += `\tsetFieldValue(fieldName: ${fieldParams}, value: any): boolean;` + os.EOL;
-                output += `\tgetFieldValue(fieldName: ${fieldParams}): any;` + os.EOL;
             }
 
             output += `}` + os.EOL;
             output += os.EOL;
+
+            output += `declare interface ${fileTypeName} extends DlcFile, ${fileTypeName}Fields {`;
+            if (fieldParams.length > 0) {
+                // add functions getFieldValue and setFieldValue
+                output += `${os.EOL}\tsetFieldValue(fieldName: keyof ${fileTypeName}Fields, value: any): boolean;` + os.EOL;
+                output += `\tgetFieldValue(fieldName: keyof ${fileTypeName}Fields): any;` + os.EOL;
+                if (referenceFileFieldNames.size > 0) {
+                    output += `\tgetReferenceFile<K extends keyof ${fileTypeName}ReferenceFiles>(fieldName: K): ${fileTypeName}ReferenceFiles[K];` + os.EOL;
+                }
+            }
+
+            output += `}`;
+
+            if (referenceFileFieldNames.size > 0) {
+                output += `${os.EOL}${os.EOL}declare interface ${fileTypeName}ReferenceFiles {${os.EOL}`;
+                for (const [fieldName, referenceFileTypeName] of referenceFileFieldNames) {
+                    output += `\t"${fieldName}": ${referenceFileTypeName};${os.EOL}`;
+                }
+
+                output += `}${os.EOL}${os.EOL}`;
+            }
+
 
             resolve([output]);
         }).catch((reason) => {
@@ -580,10 +616,10 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
             }
 
             // first entry contains the error message that is read in node-sds
-            fileTypeNames.splice(0,1);
+            fileTypeNames.splice(0, 1);
 
             // iterate over file types and get the interface with the field names
-            return reduce(fileTypeNames, function(numFileTypes: number, fileTypeName: string) {
+            return reduce(fileTypeNames, function (numFileTypes: number, fileTypeName: string) {
 
                 // get interface for file type 'fileTypeName'
                 return getFileTypeInterface(sdsConnection, [fileTypeName], connInfo).then((ftInterface) => {
@@ -668,9 +704,9 @@ function getScriptInfoAsJSON(sdsConnection: SDSConnection, scripts: scriptT[]): 
             }
             const param = response.getParameter(ParameterNames.PARAMETER) as string[];
             const err = param[0];
-            if(0 < err.length) {
+            if (0 < err.length) {
                 reject(err);
-            } else if(1 < param.length) {
+            } else if (1 < param.length) {
                 let json = param[1];
                 script.parameters = json;
                 resolve([json]);
@@ -687,7 +723,7 @@ export async function getScriptInfoAsJSONAll(sdsConnection: SDSConnection, param
     return new Promise<string[]>((resolve, reject) => {
         let jsonOut: string[] = [];
 
-        return reduce(params, function(numScripts: number, _script: scriptT) {
+        return reduce(params, function (numScripts: number, _script: scriptT) {
             return getScriptInfoAsJSON(sdsConnection, [_script]).then((value) => {
                 const jsonScript: string = value[0];
                 jsonOut.push(_script.name);
@@ -733,7 +769,7 @@ export async function getSystemUser(sdsConnection: SDSConnection, params: any[])
  */
 export async function downloadScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        if(0 === params.length) {
+        if (0 === params.length) {
             resolve([]);
 
         } else {
@@ -748,18 +784,18 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
                 }
                 const retval = response.getParameter(ParameterNames.PARAMETER) as string[];
 
-                if(!retval[0] || typeof(retval[0]) !== 'string') {
+                if (!retval[0] || typeof (retval[0]) !== 'string') {
                     return reject('could not find ' + script.name + ' on server');
                 }
 
-                if('false' === retval[1] || 'decrypted' === retval[1] || ('true' === retval[1] && script.allowDownloadEncrypted)) {
+                if ('false' === retval[1] || 'decrypted' === retval[1] || ('true' === retval[1] && script.allowDownloadEncrypted)) {
                     script.serverCode = ensureNoBOM(retval[0]);
                     script.encrypted = retval[1];
 
                     let scriptPath;
 
                     // get category for category as folder
-                    if(retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
+                    if (retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                         script.category = retval[2];
                     }
 
@@ -807,11 +843,11 @@ export async function downloadAll(sdsConnection: SDSConnection, scripts: scriptT
     return new Promise<scriptT[]>((resolve, reject) => {
         let returnScripts: scriptT[] = [];
 
-        if(0 === scripts.length) {
+        if (0 === scripts.length) {
             resolve(returnScripts);
 
         } else {
-            return reduce(scripts, function(numScripts: number, script: scriptT) {
+            return reduce(scripts, function (numScripts: number, script: scriptT) {
                 return downloadScript(sdsConnection, [script], connInfo).then((retval) => {
                     const currentScript: scriptT = retval[0];
                     returnScripts.push(currentScript);
@@ -845,7 +881,7 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
             return resolve();
         }
 
-        if(0 === params.length) {
+        if (0 === params.length) {
             return reject('Empty paramter in checkVersionEncryption');
         }
 
@@ -883,7 +919,7 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
                 return resolve();
             }
             if (value[1] === 'false') {
-                if(script.localCode && script.localCode.indexOf('// #crypt') >= 0) {
+                if (script.localCode && script.localCode.indexOf('// #crypt') >= 0) {
                     script.encrypted = 'decrypted';
                 } else {
                     script.encrypted = 'false';
@@ -913,12 +949,12 @@ function encryptionWorkaround(sdsConnection: SDSConnection, params: scriptT[], c
  */
 function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
-        if(0 === params.length) {
+        if (0 === params.length) {
             return resolve([]);
         }
         let script: scriptT = params[0];
 
-        if(!script.conflictMode || script.forceUpload) {
+        if (!script.conflictMode || script.forceUpload) {
             return resolve([script]);
         }
 
@@ -929,17 +965,17 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
             return reject(value[0]);
         }
         const value = response.getParameter(ParameterNames.PARAMETER) as string[];
-        if(!value || value.length === 0) {
+        if (!value || value.length === 0) {
             // script not on server
             script.conflict |= CONFLICT_SOURCE_CODE;
             return resolve([script]);
         }
 
-        if(value.length < 2) {
+        if (value.length < 2) {
             return reject('Unexpected error in checkForConflict');
         }
 
-        if(value && 'true' === value[1]) {
+        if (value && 'true' === value[1]) {
             // script encrypted on server and no decryption pem available
             script.conflict |= CONFLICT_SOURCE_CODE;
             script.encrypted = value[1];
@@ -949,7 +985,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
             let serverHash = crypto.createHash('md5').update(serverCode || '').digest('hex');
 
             // compare hash value
-            if(script.lastSyncHash !== serverHash) {
+            if (script.lastSyncHash !== serverHash) {
                 // server code has been changed
                 script.conflict |= CONFLICT_SOURCE_CODE;
                 script.serverCode = serverCode;
@@ -957,7 +993,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
         }
 
         // compare category
-        if(value[2] && value[2] !== script.category) {
+        if (value[2] && value[2] !== script.category) {
             script.conflict |= CONFLICT_CATEGORY;
         }
 
@@ -976,7 +1012,7 @@ function checkForConflict(sdsConnection: SDSConnection, params: scriptT[]): Prom
 export async function uploadScript(sdsConnection: SDSConnection, inputScript: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
         try {
-            if(inputScript.length === 0) {
+            if (inputScript.length === 0) {
                 return resolve([]);
             }
             const script: scriptT = inputScript[0];
@@ -985,7 +1021,7 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
             await encryptionWorkaround(sdsConnection, [script], connInfo);
 
             script.localCode = ensureNoBOM(script.localCode);
-            if(!script.localCode) {
+            if (!script.localCode) {
                 return reject(ERROR_SOURCE_MISSING);
             }
 
@@ -997,11 +1033,11 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
             }
 
             // create parameters and upload script
-            if(!script.encrypted) {
+            if (!script.encrypted) {
                 script.encrypted = 'false';
             }
             let paramCategory = '';
-            if(script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
+            if (script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
                 paramCategory = script.category;
             }
             const uploadParams = [script.name, script.localCode, script.encrypted, paramCategory];
@@ -1015,7 +1051,7 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
             // const value = response.getParameter(ParameterNames.PARAMETER) as string[];
 
             // set hash value
-            if(script.conflictMode) {
+            if (script.conflictMode) {
                 script.lastSyncHash = crypto.createHash('md5').update(script.localCode).digest("hex");
             }
 
@@ -1047,10 +1083,10 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
  */
 export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: scriptT[], connInfo: config.ConnectionInformation | undefined): Promise<scriptT[]> {
     return new Promise<scriptT[]>(async (resolve, reject) => {
-        if(!connInfo) {
+        if (!connInfo) {
             return reject('login information missing');
         }
-        if(0 === inputScripts.length) {
+        if (0 === inputScripts.length) {
             return resolve([]);
         }
 
@@ -1085,7 +1121,7 @@ export async function uploadScripts(sdsConnection: SDSConnection, inputScripts: 
  */
 export async function runScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        if(0 === params.length) {
+        if (0 === params.length) {
             resolve([]);
         } else {
 
@@ -1102,7 +1138,7 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[],
                     // return reject(value[0]);
                 }
                 const value = response.getParameter(ParameterNames.PARAMETER) as string[];
-                if(!value || 0 === value.length) {
+                if (!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 } else {
                     script.output = value.join(os.EOL);
@@ -1123,7 +1159,7 @@ export async function runScript(sdsConnection: SDSConnection, params: scriptT[],
  */
 export async function debugScript(sdsConnection: SDSConnection, params: scriptT[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
     return new Promise<scriptT[]>((resolve, reject) => {
-        if(0 === params.length) {
+        if (0 === params.length) {
             resolve([]);
         } else {
 
@@ -1141,7 +1177,7 @@ export async function debugScript(sdsConnection: SDSConnection, params: scriptT[
                 }
                 const value = response.getParameter(ParameterNames.PARAMETER) as string[];
 
-                if(!value || 0 === value.length) {
+                if (!value || 0 === value.length) {
                     reject('could not find ' + params[0] + ' on server');
                 } else {
                     script.output = value.join(os.EOL);
@@ -1165,7 +1201,7 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
     return new Promise<scriptT[]>((resolve, reject) => {
         let scripts: scriptT[] = [];
 
-        return reduce(params, function(numScripts: number, _script: scriptT) {
+        return reduce(params, function (numScripts: number, _script: scriptT) {
             return runScript(sdsConnection, [_script], connInfo).then((value) => {
                 let script: scriptT = value[0];
                 scripts.push(script);
@@ -1209,11 +1245,11 @@ export async function writeFileEnsureDir(data: any, filename: string | undefined
         const folder = path.dirname(filename);
 
         if (folder) {
-            fs.ensureDir(folder, function(error: any) {
+            fs.ensureDir(folder, function (error: any) {
                 if (error) {
                     reject(error);
                 } else {
-                    fs.writeFile(filename, data, {encoding: 'utf8'}, function(error: any) {
+                    fs.writeFile(filename, data, { encoding: 'utf8' }, function (error: any) {
                         if (error) {
                             reject(error);
                         } else {
@@ -1232,16 +1268,16 @@ export async function writeFileEnsureDir(data: any, filename: string | undefined
 
 export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-        return reduce(scripts, function(numscripts: number, script: scriptT) {
+        return reduce(scripts, function (numscripts: number, script: scriptT) {
             // if script.path is not set, script will not be saved in writeFileEnsureDir(),
             // so the path member can be used to prevent single scripts of the scripts-array
             // from being saved
             return writeFileEnsureDir(script.serverCode, script.path).then((saved) => {
                 script.localCode = script.serverCode;
-                if(script.conflictMode) {
+                if (script.conflictMode) {
                     script.lastSyncHash = crypto.createHash('md5').update(script.localCode || '').digest('hex');
                 }
-                return numscripts + (saved? 1 : 0);
+                return numscripts + (saved ? 1 : 0);
             });
         }, 0).then((numscripts: number) => {
             // this section is executed once after all writeFileEnsureDir calls are finished
@@ -1324,7 +1360,7 @@ function convertDocumentsFieldType(documentsType: string): string {
             return 'number';
         case 'Date':
         case 'Timestamp':
-            return 'Date';
+            return 'Date | null';
         case 'String':
         case 'Text':
         case 'Text (Fixed Font)':
@@ -1332,6 +1368,11 @@ function convertDocumentsFieldType(documentsType: string): string {
         case 'E-Mail':
         case 'URL':
         case 'HTML':
+        case 'Reference':
+        case 'Gadget':
+        case 'Enumeration':
+        case 'Double select list':
+        case 'Custom':
             return 'string';
         default:
             return 'any';
@@ -1341,14 +1382,14 @@ function convertDocumentsFieldType(documentsType: string): string {
 
 
 function checkVersion(loginData: config.ConnectionInformation, version: string, warning?: string): boolean {
-    if(Number(loginData.documentsVersion) >= Number(version)) {
+    if (Number(loginData.documentsVersion) >= Number(version)) {
         return true;
     } else {
-        if("VERSION_CATEGORIES" === warning) {
+        if ("VERSION_CATEGORIES" === warning) {
             loginData.lastWarning = `For using category features DOCUMENTS ${VERSION_CATEGORIES} is required`;
-        } else if("VERSION_PARAMS_SET" === warning) {
+        } else if ("VERSION_PARAMS_SET" === warning) {
             loginData.lastWarning = `For uploading parameter DOCUMENTS ${VERSION_PARAMS_SET} is required`;
-        } else if("VERSION_PARAMS_GET" === warning) {
+        } else if ("VERSION_PARAMS_GET" === warning) {
             loginData.lastWarning = `For downloading parameter DOCUMENTS ${VERSION_PARAMS_GET} is required`;
         }
 
