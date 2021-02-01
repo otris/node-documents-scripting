@@ -567,6 +567,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
                 output += `\tgetFieldValue(fieldName: keyof ${fileTypeName}Fields): any;` + os.EOL;
                 if (referenceFileFieldNames.size > 0) {
                     output += `\tgetReferenceFile<K extends keyof ${fileTypeName}ReferenceFiles>(fieldName: K): ${fileTypeName}ReferenceFiles[K];` + os.EOL;
+                    output += `\tsetReferenceFile<K extends keyof ${fileTypeName}ReferenceFiles>(fieldName: K, referenceFile: ${fileTypeName}ReferenceFiles[K]): boolean;` + os.EOL;
                 }
             }
 
