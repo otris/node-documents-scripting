@@ -560,7 +560,7 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             output += `}` + os.EOL;
             output += os.EOL;
 
-            output += `declare interface ${fileTypeName} extends DlcFile, ${fileTypeName}Fields {`;
+            output += `declare interface ${fileTypeName} extends DocFile, ${fileTypeName}Fields {`;
             if (fieldParams.length > 0) {
                 // add functions getFieldValue and setFieldValue
                 output += `${os.EOL}\tsetFieldValue(fieldName: keyof ${fileTypeName}Fields, value: any): boolean;` + os.EOL;
@@ -571,10 +571,10 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
                 }
             }
 
-            output += `}`;
+            output += `}${os.EOL}`;
 
             if (referenceFileFieldNames.size > 0) {
-                output += `${os.EOL}${os.EOL}declare interface ${fileTypeName}ReferenceFiles {${os.EOL}`;
+                output += `${os.EOL}declare interface ${fileTypeName}ReferenceFiles {${os.EOL}`;
                 for (const [fieldName, referenceFileTypeName] of referenceFileFieldNames) {
                     output += `\t"${fieldName}": ${referenceFileTypeName};${os.EOL}`;
                 }
