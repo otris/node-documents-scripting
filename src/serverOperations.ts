@@ -216,12 +216,21 @@ export async function connectLogin(sdsConnection: SDSConnection | undefined, con
             sds.SDSConnection.TIMEOUT = conn.sdsTimeout ? conn.sdsTimeout : sds.SDSConnection.TIMEOUT;
             // sds.SDSConnection.STREAMING_TIMEOUT = 10000000;
             await connection.connect(conn.clientName ? conn.clientName : "node-documents-scripting", conn.server, conn.port);
-            await connection.PDClass.changeUser(conn.username, conn.password);
-            await connection.PDClass.changePrincipal(conn.principal);
-            return resolve(connection);
         } catch (err) {
             return reject(err);
         }
+        try {
+            await connection.PDClass.changeUser(conn.username, conn.password);
+        } catch (err) {
+            conn.password = undefined;
+            return reject(err);
+        }
+        try {
+            await connection.PDClass.changePrincipal(conn.principal);
+        } catch (err) {
+            return reject(err);
+        }
+        return resolve(connection);
     });
 }
 
