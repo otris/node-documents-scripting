@@ -29,6 +29,7 @@ export class Connection {
     public principal: string = "";
     public sdsTimeout?: number;
     public clientName?: string;
+    public tls?: boolean;
 }
 
 export class ConnectionInformation extends Connection {
@@ -55,14 +56,14 @@ export class ConnectionInformation extends Connection {
     }
 
     public checkLoginData(): boolean {
-        if ('' === this.server || 0  === this.port || '' === this.principal || '' === this.username) {
+        if ('' === this.server || 0 === this.port || '' === this.principal || '' === this.username) {
             return false;
         }
         return true;
     }
 
     public checkAnyLoginData(): boolean {
-        if ('' === this.server && 0  === this.port && '' === this.principal && '' === this.username) {
+        if ('' === this.server && 0 === this.port && '' === this.principal && '' === this.username) {
             return false;
         }
         return true;
