@@ -500,8 +500,8 @@ export async function getFileTypeNames(sdsConnection: SDSConnection, params: str
  *
  * @return string containing the interface declaration for the file type
  */
-export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
+export async function getFileTypeInterface(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
 
         // check parameter
         if (!params || 0 >= params.length || 0 >= params[0].length) {
@@ -517,7 +517,6 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
         if (fieldTypesVersion) {
             operation = 'getFieldNamesAndTypes';
         }
-
 
         // get the field names
         sdsConnection.PDClass.callOperation('IDlcFileType.' + operation, [fileTypeName]).then(async (returnValue) => {
@@ -569,6 +568,11 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             output += `}` + os.EOL;
             output += os.EOL;
 
+            // Get all Registers
+            const registerNames = await getRegisterNames(fileTypeName, sdsConnection);
+            output += `declare type ${fileTypeName}RegisterNames = "${registerNames.join("\"|\"")}";${os.EOL}`;
+            output += os.EOL;
+
             output += `declare interface ${fileTypeName} extends DocFile, ${fileTypeName}Fields {`;
             if (fieldParams.length > 0) {
                 // add functions getFieldValue and setFieldValue
@@ -578,6 +582,10 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
                     output += `\tgetReferenceFile<K extends keyof ${fileTypeName}ReferenceFiles>(fieldName: K): ${fileTypeName}ReferenceFiles[K];` + os.EOL;
                     output += `\tsetReferenceFile<K extends keyof ${fileTypeName}ReferenceFiles>(fieldName: K, referenceFile: ${fileTypeName}ReferenceFiles[K]): boolean;` + os.EOL;
                 }
+            }
+
+            if (registerNames.length > 0) {
+                output += `\tgetRegisterByName(registerName: ${fileTypeName}RegisterNames, checkAccessRight?: boolean): Register;` + os.EOL;
             }
 
             output += `}${os.EOL}`;
@@ -592,11 +600,24 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
             }
 
 
-            resolve([output]);
+            resolve([output, registerNames]);
         }).catch((reason) => {
             reject('IDlcFileType.getFieldNames failed: ' + reason);
         });
     });
+}
+
+async function getRegisterNames(fileTypeName: string, sdsConnection: SDSConnection): Promise<string[]> {
+    const response = await sdsConnection.PDClass.callOperation('IDlcFileType.getRegisterNames', [fileTypeName]);
+    const sdsResponse = response as SDSResponse;
+    const errCode = sdsResponse.getParameter(ParameterNames.RETURN_VALUE) as number;
+    if (errCode < 0) {
+        const value = sdsResponse.getParameter(ParameterNames.PARAMETER) as string[];
+        throw new Error(value[0]);
+    }
+
+    const registerNames = sdsResponse.getParameter(ParameterNames.PARAMETER) as string[];
+    return registerNames.filter(r => r && r.length > 0);
 }
 
 /**
@@ -610,6 +631,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
     return new Promise<string[]>((resolve, reject) => {
         let output = '';
         let fileTypeMappings = '';
+        let registerPerFileTypeMapping = '';
         let fileTypesDisj = '';
         sdsConnection.PDClass.callOperation('IDlcFileType.getFileTypeNames', []).then((returnValue) => {
             const response = returnValue as SDSResponse;
@@ -635,12 +657,13 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                 return getFileTypeInterface(sdsConnection, [fileTypeName], connInfo).then((ftInterface) => {
 
                     // add interface of file type 'fileTypeName'
-                    output += ftInterface;
+                    output += ftInterface[0];
 
                     // add 'fileTypeName' to file type mappings
                     if (fileTypeName.length > 0) {
                         fileTypeMappings += `\t"${fileTypeName}": ${fileTypeName};` + os.EOL;
                         fileTypesDisj += ` ${fileTypeName} |`;
+                        registerPerFileTypeMapping += `\t"${fileTypeName}": ${fileTypeName}RegisterNames;${os.EOL}`;
                     }
 
                     // count the file types, not really needed for now
@@ -651,15 +674,19 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
 
                 // add the file type mapper
                 // but only if file types have been inserted
-                if (output.length > 0 && fileTypeMappings.length > 0) {
-                    let fileTypeMapper = 'interface FileTypeMapper {' + os.EOL;
-                    fileTypeMapper += fileTypeMappings;
-                    fileTypeMapper += `}` + os.EOL;
-                    fileTypeMapper += os.EOL;
-                    output += fileTypeMapper + os.EOL;
-                    // remove the last ' |' from fileTypesDisj
-                    let fileTypesType = 'declare type FileTypes =' + fileTypesDisj.slice(0, fileTypesDisj.length - 2) + ';';
-                    output += fileTypesType + os.EOL;
+                if (output.length > 0) {
+                    if (fileTypeMappings.length > 0) {
+                        let fileTypeMapper = 'interface FileTypeMapper {' + os.EOL;
+                        fileTypeMapper += fileTypeMappings;
+                        fileTypeMapper += `}` + os.EOL;
+                        fileTypeMapper += os.EOL;
+                        output += fileTypeMapper + os.EOL;
+                        // remove the last ' |' from fileTypesDisj
+                        let fileTypesType = 'declare type FileTypes =' + fileTypesDisj.slice(0, fileTypesDisj.length - 2) + ';';
+                        output += fileTypesType + os.EOL;
+                    }
+
+                    output += `interface RegisterPerFileTypeMapper {${os.EOL}${registerPerFileTypeMapping}}${os.EOL}`;
                 }
 
                 // output contains the whole d.ts string now
