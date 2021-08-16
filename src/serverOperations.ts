@@ -553,7 +553,10 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
                     let referenceFileType = "DocFile"; // in case if the enum value cannot be parsed
                     if (!enumValues.match(/error/i)) {
                         // enumValues === <fileTypeName.identifier> , %autotext%
-                        referenceFileType = enumValues.split(/\r?\n|,\s?/)[0].match(/(%[^%]+%)?([^.]+)/)[0];
+                        const tmp = enumValues.split(/\r?\n|,\s?/)[0].match(/(%[^%]+%)?([^.]+)/);
+						if (!tmp)
+						    return reject();
+						referenceFileType = tmp[0];
                         if (referenceFileType.startsWith("%")) {
                             // can contain autotext, like %eDossierType.key%Dossier. Prevent invalid tsd
                             referenceFileType = JSON.stringify(referenceFileType)
