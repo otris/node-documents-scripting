@@ -30,6 +30,8 @@ export class Connection {
     public sdsTimeout?: number;
     public clientName?: string;
     public tls?: boolean;
+	public startTls?: boolean;
+	public trustedCas?: boolean;
 }
 
 export class ConnectionInformation extends Connection {
