@@ -31,7 +31,7 @@ export class Connection {
     public clientName?: string;
     public tls?: boolean;
 	public startTls?: boolean;
-	public trustedCas?: boolean;
+	public trustedCas?: string | string[];
 }
 
 export class ConnectionInformation extends Connection {
