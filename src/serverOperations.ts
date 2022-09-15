@@ -627,6 +627,18 @@ async function getRegisterNames(fileTypeName: string, sdsConnection: SDSConnecti
     return registerNames.filter(r => r && r.length > 0);
 }
 
+async function getFolderNames(sdsConnection: SDSConnection): Promise<string[]> {
+    try {
+        const folderNames = await sdsConnection.CustomOperations.runScriptOnServer(
+            `context.changeScriptUser(DlcGlobalOptions.getAttribute("StandardUser"));return JSON.stringify([...context.getFoldersByName("*")].map(f => f.Name));`
+        );
+
+        return JSON.parse(folderNames).filter(f => !f.startsWith("Dlc_"));
+    } catch (err) {
+        return [];
+    }
+}
+
 /**
  * Get field names of all file types and create a string that contains the
  * TypeScript definition file content for all file types
@@ -676,7 +688,7 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                     // count the file types, not really needed for now
                     return numFileTypes + 1;
                 });
-            }, 0).then((numFileTypes: number) => {
+            }, 0).then(async (numFileTypes: number) => {
                 // iteration finished, all available file types inserted
 
                 // add the file type mapper
@@ -701,6 +713,11 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                     }
 
                     output += `interface RegisterPerFileTypeMapper {${os.EOL}${registerPerFileTypeMapping}}${os.EOL}`;
+                }
+
+                const folderNames = await getFolderNames(sdsConnection);
+                if (folderNames.length > 0) {
+                    output += `${os.EOL}declare type FolderNames = "${folderNames.join("\" | \"")}";${os.EOL}`;
                 }
 
                 // output contains the whole d.ts string now
