@@ -554,9 +554,9 @@ export async function getFileTypeInterface(sdsConnection: SDSConnection, params:
                     if (!enumValues.match(/error/i)) {
                         // enumValues === <fileTypeName.identifier> , %autotext%
                         const tmp = enumValues.split(/\r?\n|,\s?/)[0].match(/(%[^%]+%)?([^.]+)/);
-						if (!tmp)
-						    return reject();
-						referenceFileType = tmp[0];
+                        if (!tmp)
+                            return reject();
+                        referenceFileType = tmp[0];
                         if (referenceFileType.startsWith("%")) {
                             // can contain autotext, like %eDossierType.key%Dossier. Prevent invalid tsd
                             referenceFileType = JSON.stringify(referenceFileType)
@@ -688,6 +688,13 @@ export async function getFileTypesTSD(sdsConnection: SDSConnection, params: stri
                         fileTypeMapper += `}` + os.EOL;
                         fileTypeMapper += os.EOL;
                         output += fileTypeMapper + os.EOL;
+
+                        // add interface FileTypeFieldsMapper
+                        let fileTypeFieldsMapper = `interface FileTypeFieldsMapper {${os.EOL}`;
+                        fileTypeFieldsMapper += fileTypeMappings.replace(/;(\r?\n)/g, "Fields;$1");
+                        fileTypeFieldsMapper += `}${os.EOL}${os.EOL}`;
+                        output += fileTypeFieldsMapper + os.EOL;
+
                         // remove the last ' |' from fileTypesDisj
                         let fileTypesType = 'declare type FileTypes =' + fileTypesDisj.slice(0, fileTypesDisj.length - 2) + ';';
                         output += fileTypesType + os.EOL;
