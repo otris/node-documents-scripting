@@ -20,6 +20,7 @@ export const VERSION_CATEGORIES = "8041";
 export const VERSION_FIELD_TYPES = "8044";
 export const VERSION_PARAMS_SET = "8067";
 export const VERSION_SHOW_IMPORTS = "8047";
+export const VERSION_MODULE_SCRIPT = "8501";
 
 export const CONFLICT_SOURCE_CODE = 0x1;
 export const CONFLICT_CATEGORY = 0x2;
@@ -254,6 +255,49 @@ export async function callClassOperation(sdsConnection: SDSConnection, op: strin
         }
     });
 }
+
+
+export async function getScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        try {
+            if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
+                return resolve(["Classic"]);
+            const scriptName = params[0];
+            const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
+            const script = await sdsConnection.PDClass.seekNext(scriptIter);
+            if (!script)
+                return reject("Script not found!");
+            const scriptMode = await script.getAttribute("ScriptMode.Tech");
+            if (scriptMode !== "Classic" && scriptMode !== "Module")
+                return reject("Unexpected ScriptMode!");
+            return resolve(scriptMode);
+        } catch (err) {
+            return reject(err);
+        }
+    });
+}
+
+export async function setScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    return new Promise<string[]>(async (resolve, reject) => {
+        try {
+            if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
+                return reject("ScriptMode only available with Documents6");
+            const scriptName = params[0];
+            const scriptMode = params[1];
+            if (scriptMode !== "Classic" && scriptMode !== "Module")
+                return reject("Unexpected ScriptMode!");
+            const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
+            const script = await sdsConnection.PDClass.seekNext(scriptIter);
+            if (!script)
+                return reject("Script not found!");
+            const mode = await script.setAttribute("ScriptMode.Tech", scriptMode);
+            return resolve([]);
+        } catch (err) {
+            return reject(err);
+        }
+    });
+}
+
 
 
 export async function getSourceCodeForEditor(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
