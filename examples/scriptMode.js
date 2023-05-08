@@ -27,7 +27,7 @@ async function upload(paramLogin, paramScript){
     try {
         await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.uploadScript);
         await serverOperations.serverSession(paramLogin, ['mySimpleScript', 'Module'], serverOperations.setScriptMode);
-        const scriptMode = await serverOperations.serverSession(paramLogin, ['mySimpleScript'], serverOperations.getScriptMode);
+        const [scriptMode] = await serverOperations.serverSession(paramLogin, ['mySimpleScript'], serverOperations.getScriptMode);
         console.log('Script Mode: ' + scriptMode);
     } catch(err) {
         console.log(err);

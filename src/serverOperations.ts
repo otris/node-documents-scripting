@@ -257,9 +257,9 @@ export async function callClassOperation(sdsConnection: SDSConnection, op: strin
 }
 
 
-export async function getScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string> {
+export async function getScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
-        return "Classic";
+        return ["Classic"];
     const scriptName = params[0];
     const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
     if (!scriptIter)
@@ -271,10 +271,10 @@ export async function getScriptMode(sdsConnection: SDSConnection, params: string
     const scriptMode = await script.getAttribute("ScriptMode.Tech");
     if (scriptMode !== "Classic" && scriptMode !== "Module")
         throw new Error("Unexpected ScriptMode!");
-    return scriptMode;
+    return [scriptMode];
 }
 
-export async function setScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<void> {
+export async function setScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
     if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
         throw new Error("ScriptMode only available with Documents6");
     const scriptName = params[0];
@@ -289,6 +289,7 @@ export async function setScriptMode(sdsConnection: SDSConnection, params: string
     if (!script)
         throw new Error("Script not found!");
     await script.setAttribute("ScriptMode.Tech", scriptMode);
+    return [];
 }
 
 
