@@ -257,45 +257,38 @@ export async function callClassOperation(sdsConnection: SDSConnection, op: strin
 }
 
 
-export async function getScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
-    return new Promise<string[]>(async (resolve, reject) => {
-        try {
-            if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
-                return resolve(["Classic"]);
-            const scriptName = params[0];
-            const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
-            const script = await sdsConnection.PDClass.seekNext(scriptIter);
-            if (!script)
-                return reject("Script not found!");
-            const scriptMode = await script.getAttribute("ScriptMode.Tech");
-            if (scriptMode !== "Classic" && scriptMode !== "Module")
-                return reject("Unexpected ScriptMode!");
-            return resolve(scriptMode);
-        } catch (err) {
-            return reject(err);
-        }
-    });
+export async function getScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string> {
+    if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
+        return "Classic";
+    const scriptName = params[0];
+    const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
+    if (!scriptIter)
+        throw new Error("Script not found!");
+    const script = await sdsConnection.PDClass.seekNext(scriptIter);
+    await sdsConnection.PDClass.deleteIterator(scriptIter);
+    if (!script)
+    throw new Error("Script not found!");
+    const scriptMode = await script.getAttribute("ScriptMode.Tech");
+    if (scriptMode !== "Classic" && scriptMode !== "Module")
+        throw new Error("Unexpected ScriptMode!");
+    return scriptMode;
 }
 
-export async function setScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
-    return new Promise<string[]>(async (resolve, reject) => {
-        try {
-            if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
-                return reject("ScriptMode only available with Documents6");
-            const scriptName = params[0];
-            const scriptMode = params[1];
-            if (scriptMode !== "Classic" && scriptMode !== "Module")
-                return reject("Unexpected ScriptMode!");
-            const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
-            const script = await sdsConnection.PDClass.seekNext(scriptIter);
-            if (!script)
-                return reject("Script not found!");
-            const mode = await script.setAttribute("ScriptMode.Tech", scriptMode);
-            return resolve([]);
-        } catch (err) {
-            return reject(err);
-        }
-    });
+export async function setScriptMode(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<void> {
+    if (Number(connInfo.documentsVersion) < Number(VERSION_MODULE_SCRIPT))
+        throw new Error("ScriptMode only available with Documents6");
+    const scriptName = params[0];
+    const scriptMode = params[1];
+    if (scriptMode !== "Classic" && scriptMode !== "Module")
+        throw new Error("Unexpected ScriptMode!");
+    const scriptIter = await sdsConnection.PDClass.newIterator("PortalScript", `Name='${scriptName}'`);
+    if (!scriptIter)
+        throw new Error("Script not found!");
+    const script = await sdsConnection.PDClass.seekNext(scriptIter);
+    await sdsConnection.PDClass.deleteIterator(scriptIter);
+    if (!script)
+        throw new Error("Script not found!");
+    await script.setAttribute("ScriptMode.Tech", scriptMode);
 }
 
 
