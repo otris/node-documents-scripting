@@ -1366,56 +1366,45 @@ export async function runAll(sdsConnection: SDSConnection, params: scriptT[], co
  * @param allowSubFolder
  */
 export async function writeFileEnsureDir(data: any, filename: string | undefined): Promise<boolean> {
-    console.log('writeFile');
-
     return new Promise<boolean>((resolve, reject) => {
-        if (!filename || filename.length === 0) {
+        if (!filename || filename.length === 0)
             return resolve(false);
-        }
         const folder = path.dirname(filename);
+        if (!folder)
+            return reject(`Error in filename ${filename}`);
 
-        if (folder) {
-            fs.ensureDir(folder, function (error: any) {
-                if (error) {
-                    reject(error);
-                } else {
-                    fs.writeFile(filename, data, { encoding: 'utf8' }, function (error: any) {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            console.log(`wrote file ${filename}`);
-                            resolve(true);
-                        }
-                    });
-                }
-            });
-        } else {
-            reject(`Error in filename ${filename}`);
-        }
+        fs.ensureDir(folder, function (error: any) {
+            if (error) {
+                reject(error);
+            } else {
+                fs.writeFile(filename, data, { encoding: 'utf8' }, function (error: any) {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(true);
+                    }
+                });
+            }
+        });
     });
 }
 
 
-export function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
-    return new Promise<number>((resolve, reject) => {
-        return reduce(scripts, function (numscripts: number, script: scriptT) {
-            // if script.path is not set, script will not be saved in writeFileEnsureDir(),
-            // so the path member can be used to prevent single scripts of the scripts-array
-            // from being saved
-            return writeFileEnsureDir(script.serverCode, script.path).then((saved) => {
-                script.localCode = script.serverCode;
-                if (script.conflictMode) {
-                    script.lastSyncHash = crypto.createHash('md5').update(script.localCode || '').digest('hex');
-                }
-                return numscripts + (saved ? 1 : 0);
-            });
-        }, 0).then((numscripts: number) => {
-            // this section is executed once after all writeFileEnsureDir calls are finished
-            resolve(numscripts);
-        }).catch((error: any) => {
-            reject(error);
-        });
-    });
+export async function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<number> {
+    let numscripts = 0;
+    for (const script of scripts) {
+        // if script.path is not set, script will not be saved in writeFileEnsureDir(),
+        // so the path member can be used to prevent single scripts of the scripts-array
+        // from being saved
+        if (script.path && script.mode === 'Module')
+            script.path.replace(/\.js$/i, '.mjs');
+        const saved = await writeFileEnsureDir(script.serverCode, script.path);
+        script.localCode = script.serverCode;
+        if (script.conflictMode)
+            script.lastSyncHash = crypto.createHash('md5').update(script.localCode || '').digest('hex');
+        numscripts += saved ? 1 : 0;
+    }
+    return numscripts;
 }
 
 
