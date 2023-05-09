@@ -136,6 +136,7 @@ export class scriptT {
     downloadParameters?: boolean;
 
     duplicate?: boolean;
+    mode = "Classic";
 
     constructor(name: string, path?: string, localCode?: string) {
         this.name = name;
@@ -465,15 +466,21 @@ export async function updateScriptLibs(sdsConnection: SDSConnection, param: stri
  * @returns {scriptT[]} List of scripts created from all script names in category or all script names on server.
  */
 export async function getScriptsFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<scriptT[]> {
-    return new Promise<scriptT[]>(async (resolve, reject) => {
-        try {
-            const scriptNames = await getScriptNamesFromServer(sdsConnection, params, connInfo);
-            let scripts: scriptT[] = scriptNames.map(scriptName => new scriptT(scriptName, ""));
-            return resolve(scripts);
-        } catch (err) {
-            return reject(err);
+    let scripts: scriptT[] = [];
+    let scriptNamesWithModes: string[] = [];
+    if (Number(connInfo.documentsVersion) >= Number(VERSION_MODULE_SCRIPT))
+        scriptNamesWithModes = await getScriptNamesWithModesFromServer(sdsConnection, params, connInfo);
+    else
+        scriptNamesWithModes = await getScriptNamesFromServer(sdsConnection, params, connInfo);
+    for (var i=0; i < scriptNamesWithModes.length; i++) {
+        var script = new scriptT(scriptNamesWithModes[i], "");
+        if (Number(connInfo.documentsVersion) >= Number(VERSION_MODULE_SCRIPT)) {
+            i++;
+            script.mode = scriptNamesWithModes[i];
         }
-    });
+        scripts.push(script);
+    }
+    return scripts;
 }
 
 
@@ -482,26 +489,40 @@ export async function getScriptsFromServer(sdsConnection: SDSConnection, params:
  *
  * @param sdsConnection
  * @param params category If set, script names from this category are returned.
- * @returns {string[]} List of all script names in category or all script names on server.
+ * @returns {string[]} List of script names from all scripts on server or in category.
  */
 export async function getScriptNamesFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        sdsConnection.PDClass.callOperation('PortalScript.getScriptNames', params).then((returnValue) => {
-            const response = returnValue as SDSResponse;
-            const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
-            if (errCode < 0) {
-                const value = response.getParameter(ParameterNames.PARAMETER) as string[];
-                return reject(value[0]);
-            }
-            const value = response.getParameter(ParameterNames.PARAMETER) as string[];
-            resolve(value);
-        }).catch((reason) => {
-            reject('getScriptNamesFromServer failed: ' + reason);
-        });
-    });
+    const returnValue = await sdsConnection.PDClass.callOperation('PortalScript.getScriptNames', params);
+    const response = returnValue as SDSResponse;
+    const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+    if (errCode < 0) {
+        const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+        throw new Error("getScriptNamesFromServer failed: " + value[0]);
+    }
+    const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+    return value;
 }
 
 
+/**
+ * Get names and modes of all scripts on server.
+ *
+ * @param sdsConnection
+ * @param params category If set, script names from this category are returned.
+ * @returns {string[]} List of script names and modes from all scripts on server or in category.
+ */
+export async function getScriptNamesWithModesFromServer(sdsConnection: SDSConnection, params: string[], connInfo: config.ConnectionInformation): Promise<string[]> {
+    const returnValue = await sdsConnection.PDClass.callOperation('IPortalScript.getScriptNamesWithModes', params.length ? params : [""]);
+    const response = returnValue as SDSResponse;
+    const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
+    if (errCode < 0) {
+        const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+        throw new Error("getScriptNamesWithModesFromServer failed: " + value[0]);
+    }
+    const value = response.getParameter(ParameterNames.PARAMETER) as string[];
+    // omit first value
+    return (value && value.length > 1) ? value.slice(1): [];
+}
 
 
 /**
@@ -900,20 +921,21 @@ export async function downloadScript(sdsConnection: SDSConnection, params: scrip
 
                     let scriptPath;
 
-                    // get category for category as folder
-                    if (retval[2] && 0 < retval[2].length && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
+                    // script category
+                    if (checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES") && retval[2] && retval[2].length > 0)
                         script.category = retval[2];
-                    }
+                    // script mode
+                    if (checkVersion(connInfo, VERSION_MODULE_SCRIPT, "VERSION_MODULE_SCRIPT") && retval[3] && (retval[3] === "Classic" || retval[3] === "Module"))
+                        script.mode = retval[3];
+
 
                     // script parameters
 
-                    if (!script.downloadParameters) {
+                    if (!script.downloadParameters)
                         return resolve([script]);
-                    }
 
-                    if (!checkVersion(connInfo, VERSION_PARAMS_GET, "VERSION_PARAMS_DOWN")) {
+                    if (!checkVersion(connInfo, VERSION_PARAMS_GET, "VERSION_PARAMS_DOWN"))
                         return resolve([script]);
-                    }
 
                     // get parameters as JSON
                     getScriptInfoAsJSON(sdsConnection, [script]).then(() => {
@@ -1134,19 +1156,21 @@ export async function uploadScript(sdsConnection: SDSConnection, inputScript: sc
             // conflict?
             const conflictValue = await checkForConflict(sdsConnection, [script]);
             const conflictScript: scriptT = conflictValue[0];
-            if (conflictScript && conflictScript.conflict) {
+            if (conflictScript && conflictScript.conflict)
                 return resolve([conflictScript]);
-            }
 
-            // create parameters and upload script
-            if (!script.encrypted) {
+            // uploadScript params
+            if (!script.encrypted)
                 script.encrypted = 'false';
-            }
             let paramCategory = '';
-            if (script.category && checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES")) {
+            if (checkVersion(connInfo, VERSION_CATEGORIES, "VERSION_CATEGORIES") && script.category)
                 paramCategory = script.category;
-            }
-            const uploadParams = [script.name, script.localCode, script.encrypted, paramCategory];
+            let paramMode = "";
+            if (checkVersion(connInfo, VERSION_MODULE_SCRIPT, "VERSION_MODULE_SCRIPT"))
+                paramMode = script.mode;
+            const uploadParams = [script.name, script.localCode, script.encrypted, paramCategory, paramMode];
+            
+            // uplad script
             const response = await sdsConnection.PDClass.callOperation("PortalScript.uploadScript", uploadParams) as SDSResponse;
             const errCode = response.getParameter(ParameterNames.RETURN_VALUE) as number;
             if (errCode < 0) {

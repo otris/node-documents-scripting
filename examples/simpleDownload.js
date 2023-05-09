@@ -20,6 +20,9 @@ let myScript = new serverOperations.scriptT('mySimpleScript');
  */
 async function download(paramLogin, paramScript){
     var retval = await serverOperations.serverSession(paramLogin, [paramScript], serverOperations.downloadScript);
-    console.log('finished serverOperations.downloadScript: ' + retval[0].serverCode);
+    var script = retval[0];
+    console.log('finished serverOperations.downloadScript');
+    //console.log('code: ' + script.serverCode);
+    console.log('mode: ' + script.mode);
 }
 download(login, myScript);

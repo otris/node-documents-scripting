@@ -18,6 +18,7 @@ login.language = config.Language.English;
 let myScript = new serverOperations.scriptT('mySimpleScript');
 myScript.localCode = "return 'My simple script!';\n";
 myScript.conflictMode = false;
+myScript.mode = "Module";
 
 
 /**
