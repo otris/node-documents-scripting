@@ -1397,7 +1397,7 @@ export async function saveScriptUpdateSyncHash(scripts: scriptT[]): Promise<numb
         // so the path member can be used to prevent single scripts of the scripts-array
         // from being saved
         if (script.path && script.mode === 'Module')
-            script.path.replace(/\.js$/i, '.mjs');
+            script.path = script.path.replace(/\.js$/, '.mjs');
         const saved = await writeFileEnsureDir(script.serverCode, script.path);
         script.localCode = script.serverCode;
         if (script.conflictMode)
