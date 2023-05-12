@@ -20,7 +20,7 @@ export const VERSION_CATEGORIES = "8041";
 export const VERSION_FIELD_TYPES = "8044";
 export const VERSION_PARAMS_SET = "8067";
 export const VERSION_SHOW_IMPORTS = "8047";
-export const VERSION_MODULE_SCRIPT = "8501";
+export const VERSION_MODULE_SCRIPT = "8502";
 
 export const CONFLICT_SOURCE_CODE = 0x1;
 export const CONFLICT_CATEGORY = 0x2;
