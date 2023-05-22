@@ -1452,7 +1452,7 @@ export function getScriptsFromFolderSync(dir: string, subfolders: boolean = true
 
     // resolve file paths to scriptT-objects
     filepaths.forEach((file) => {
-        if (fs.existsSync(file) && path.extname(file).match(/\.m?js/) !== null) {
+        if (fs.existsSync(file) && path.extname(file).match(/\.m?js$/) !== null) {
             const scriptName = path.parse(file).name;
             const duplicate = scripts.find(s => s.name === scriptName);
             const newScript = new scriptT(scriptName, file, fs.readFileSync(file).toString());
