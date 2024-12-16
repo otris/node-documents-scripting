@@ -217,7 +217,7 @@ export async function connectLogin(sdsConnection: SDSConnection | undefined, con
             // connect/login
             sds.SDSConnection.TIMEOUT = conn.sdsTimeout ? conn.sdsTimeout : sds.SDSConnection.TIMEOUT;
             // sds.SDSConnection.STREAMING_TIMEOUT = 10000000;
-            await connection.connect(conn.clientName ? conn.clientName : "node-documents-scripting", conn.server, conn.port, conn.tls, conn.startTls, conn.trustedCas);
+            await connection.connect(conn.clientName ? conn.clientName : "node-documents-scripting", conn.server, conn.port, conn.tls, { StartTls: conn.startTls, TrustedCas: conn.trustedCas, InitPDMeta: false });
         } catch (err) {
             return reject(err);
         }
