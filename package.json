@@ -22,7 +22,7 @@
     "simpleTest": "node ./examples/simpleTest.js"
   },
   "dependencies": {
-    "@otris/node-sds": "^2.4.0",
+    "@otris/node-sds": "^3.0.3",
     "@types/node": "^7.0.4",
     "fs-extra": "^9.1.0",
     "reduce-for-promises": "^1.2.1",
